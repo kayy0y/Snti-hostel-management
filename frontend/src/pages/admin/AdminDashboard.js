@@ -55,6 +55,7 @@ export default function AdminDashboard() {
     { title:'Menus',          desc:'Manage weekly meal plan',       path:'/admin/menus' },
     { title:'Feedback',       desc:'Student ratings and comments',  path:'/admin/feedback' },
     { title:'Analytics',      desc:'Popularity, trends, coverage',  path:'/admin/analytics' },
+    { title:'Archive',        desc:'Year-end data archiving',        path:'/admin/archive' },
     { title:'Settings',       desc:'UPI QR, fees, configuration',   path:'/admin/settings' },
   ];
 

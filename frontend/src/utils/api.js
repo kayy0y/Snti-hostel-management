@@ -66,3 +66,10 @@ export const exportExcel        = () => API.get('/admin/export-excel', { respons
 export const exportPDF          = () => API.get('/admin/export-pdf',   { responseType: 'blob' });
 export const createAdmin        = d  => API.post('/admin/create-admin', d);
 export const getAdminList       = () => API.get('/admin/list-admins');
+
+// Archive
+export const runArchive               = (year) => API.post('/archive/run', { year });
+export const getArchiveYears          = ()      => API.get('/archive/years');
+export const getArchivedRegistrations = (year)  => API.get(`/archive/registrations?year=${year}`);
+export const getArchivedFeedback      = (year)  => API.get(`/archive/feedback?year=${year}`);
+export const exportArchive            = (year)  => API.get(`/archive/export?year=${year}`, { responseType: 'blob' });

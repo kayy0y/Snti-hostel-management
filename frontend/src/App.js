@@ -22,6 +22,7 @@ import MenuManagement    from './pages/admin/MenuManagement';
 import FeedbackAdmin     from './pages/admin/FeedbackAdmin';
 import AnalyticsPage     from './pages/admin/AnalyticsPage';
 import SettingsPage      from './pages/admin/SettingsPage';
+import ArchivePage       from './pages/admin/ArchivePage';
 
 const STUDENT_ROLES = ['student', 'external'];
 const home = u => !u ? '/' : u.role === 'admin' ? '/admin/dashboard' : '/dashboard';
@@ -70,6 +71,7 @@ const AppRoutes = () => {
       <Route path="/admin/feedback"    element={<Guard role="admin"><FeedbackAdmin /></Guard>} />
       <Route path="/admin/analytics"   element={<Guard role="admin"><AnalyticsPage /></Guard>} />
       <Route path="/admin/settings"    element={<Guard role="admin"><SettingsPage /></Guard>} />
+      <Route path="/admin/archive"     element={<Guard role="admin"><ArchivePage /></Guard>} />
 
       {/* Catch-all */}
       <Route path="*" element={<Navigate to={home(user)} replace />} />

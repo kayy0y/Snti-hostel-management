@@ -19,6 +19,7 @@ const ADMIN_NAV = [
   { to:'/admin/menus',          label:'Menus' },
   { to:'/admin/feedback',       label:'Feedback' },
   { to:'/admin/analytics',      label:'Analytics' },
+  { to:'/admin/archive',        label:'Archive' },
   { to:'/admin/settings',       label:'Settings' },
 ];
 
