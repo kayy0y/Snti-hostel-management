@@ -46,34 +46,11 @@ export default function WelcomePage() {
           className="welcome-next"
           onClick={() => navigate('/login')}
         >
-          Student Login →
-        </button>
-
-        {/* Register */}
-        <button
-          className="welcome-next"
-          style={{
-            marginTop: '12px',
-            background: '#ffffff',
-            color: '#15803d'
-          }}
-          onClick={() => navigate('/register')}
-        >
-          New Student Registration
+          Student Login
         </button>
 
         {/* Staff Login */}
-        <div style={{ marginTop: '30px' }}>
-          <p
-            style={{
-              fontSize: '.9rem',
-              opacity: .8,
-              marginBottom: '10px'
-            }}
-          >
-            Staff / Warden Access
-          </p>
-
+        <div style={{ marginTop: '24px' }}>
           <button
             className="welcome-next"
             style={{
