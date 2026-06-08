@@ -21,18 +21,15 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow Postman, Render health checks, server-to-server requests
       if (!origin) {
         return callback(null, true);
       }
 
-      // Allow configured origins
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      // Allow all Vercel preview deployments
-      if (origin.endsWith('.vercel.app')) {
+      if (typeof origin === 'string' && origin.endsWith('.vercel.app')) {
         return callback(null, true);
       }
 
@@ -42,7 +39,6 @@ app.use(
     credentials: true
   })
 );
-
 // =====================================
 // BODY PARSERS
 // =====================================
