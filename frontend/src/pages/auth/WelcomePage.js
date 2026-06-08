@@ -6,6 +6,7 @@ export default function WelcomePage() {
 
   return (
     <div className="welcome-page">
+
       {/* Background circles */}
       <div
         style={{
@@ -40,12 +41,50 @@ export default function WelcomePage() {
           Mess Registration & Smart Menu System
         </p>
 
+        {/* Student Login */}
         <button
           className="welcome-next"
           onClick={() => navigate('/login')}
         >
-          Get Started →
+          Student Login →
         </button>
+
+        {/* Register */}
+        <button
+          className="welcome-next"
+          style={{
+            marginTop: '12px',
+            background: '#ffffff',
+            color: '#15803d'
+          }}
+          onClick={() => navigate('/register')}
+        >
+          New Student Registration
+        </button>
+
+        {/* Staff Login */}
+        <div style={{ marginTop: '30px' }}>
+          <p
+            style={{
+              fontSize: '.9rem',
+              opacity: .8,
+              marginBottom: '10px'
+            }}
+          >
+            Staff / Warden Access
+          </p>
+
+          <button
+            className="welcome-next"
+            style={{
+              background: '#1e293b'
+            }}
+            onClick={() => navigate('/admin/login')}
+          >
+            Staff Login
+          </button>
+        </div>
+
       </div>
     </div>
   );
