@@ -72,11 +72,12 @@ router.post('/admin/create-admin',      protect, adminOnly, admin.createAdmin);
 router.get('/admin/list-admins',        protect, adminOnly, admin.getAdminList);
 
 // ── Archive ───────────────────────────────────────────────────────────────
-const archive = require('../controllers/archiveController');
+const archive  = require('../controllers/archiveController');
 router.post('/archive/run',                    protect, adminOnly, archive.runArchive);
 router.get('/archive/years',                   protect, adminOnly, archive.getArchiveYears);
 router.get('/archive/registrations',           protect, adminOnly, archive.getArchivedRegistrations);
 router.get('/archive/feedback',                protect, adminOnly, archive.getArchivedFeedback);
 router.get('/archive/export',                  protect, adminOnly, archive.exportArchive);
+router.delete('/archive/:year',                protect, adminOnly, archive.deleteArchive);
 
 module.exports = router;

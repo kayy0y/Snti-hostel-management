@@ -72,7 +72,7 @@ const getMyRegistration = async (req, res) => {
 const getAllRegistrations = async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT r.*,u.name,u.email,u.trainee_id,u.trainee_type,u.hostel_block,u.member_type,u.role AS user_role
+      `SELECT r.*,u.name,u.email,u.trainee_id,u.trainee_type,u.hostel_block,u.member_type,u.role AS user_role, u.is_active AS user_is_active
        FROM registrations r JOIN users u ON r.user_id=u.id ORDER BY r.created_at DESC`
     );
     return res.json({ success: true, data: rows });
@@ -89,6 +89,20 @@ const approveRegistration = async (req, res) => {
       'UPDATE registrations SET approval_status=?,approved_by=?,approved_at=NOW() WHERE id=?',
       [action === 'approve' ? 'approved' : 'rejected', req.user.id, req.params.id]
     );
+
+    // Send email notification (non-blocking)
+    try {
+      const { sendApprovalNotification } = require('../utils/emailService');
+      const [rows] = await pool.query(
+        `SELECT u.id, u.name, u.email FROM registrations r
+         JOIN users u ON r.user_id = u.id WHERE r.id = ?`,
+        [req.params.id]
+      );
+      if (rows.length) {
+        sendApprovalNotification(rows[0], action === 'approve').catch(() => {});
+      }
+    } catch (_) {}
+
     return res.json({ success: true, message: `Registration ${action}d.` });
   } catch (e) { return res.status(500).json({ success: false, message: 'Server error.' }); }
 };
