@@ -189,8 +189,11 @@ export const getAdminList = () =>
    ARCHIVE
 ========================== */
 
-export const runArchive = year =>
-  API.post('/archive/run', { year });
+export const runArchive = (month, year) =>
+  API.post('/archive/run', {
+    month,
+    year
+  });
 
 export const getArchiveYears = () =>
   API.get('/archive/years');
@@ -206,4 +209,5 @@ export const exportArchive = year =>
     responseType: 'blob'
   });
 
-export default API;
+export const deleteArchive = year =>
+  API.delete(`/archive/${year}`);
