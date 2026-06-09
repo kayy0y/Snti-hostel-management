@@ -9,6 +9,7 @@ const API = axios.create({
 // =====================================
 // REQUEST INTERCEPTOR
 // =====================================
+
 API.interceptors.request.use(config => {
   const token = localStorage.getItem('token');
 
@@ -22,6 +23,7 @@ API.interceptors.request.use(config => {
 // =====================================
 // RESPONSE INTERCEPTOR
 // =====================================
+
 API.interceptors.response.use(
   response => response,
   error => {
@@ -34,9 +36,9 @@ API.interceptors.response.use(
   }
 );
 
-// =====================================
-// AUTH
-// =====================================
+/* ==========================
+   AUTH
+========================== */
 
 export const loginUser = data =>
   API.post('/auth/login', data);
@@ -56,9 +58,9 @@ export const verifyOTP = data =>
 export const resetPassword = data =>
   API.post('/auth/reset-password', data);
 
-// =====================================
-// SETTINGS
-// =====================================
+/* ==========================
+   SETTINGS
+========================== */
 
 export const getPublicUPIQR = () =>
   API.get('/settings/upi-qr');
@@ -69,9 +71,9 @@ export const getSettings = () =>
 export const updateSettings = data =>
   API.put('/settings', data);
 
-// =====================================
-// REGISTRATIONS
-// =====================================
+/* ==========================
+   REGISTRATIONS
+========================== */
 
 export const registerMess = data =>
   API.post('/registrations', data);
@@ -87,9 +89,9 @@ export const approveRegistration = (id, action) =>
     action
   });
 
-// =====================================
-// MENUS
-// =====================================
+/* ==========================
+   MENUS
+========================== */
 
 export const getMenus = () =>
   API.get('/menus');
@@ -109,9 +111,9 @@ export const getMyMenuSelection = () =>
 export const getAllMenuSelections = () =>
   API.get('/menus/all-selections');
 
-// =====================================
-// WEEKLY PLAN
-// =====================================
+/* ==========================
+   WEEKLY PLAN
+========================== */
 
 export const getWeeklyPlan = weekStart =>
   API.get(
@@ -125,16 +127,14 @@ export const removeItemFromPlan = id =>
   API.delete(`/weekly-plan/remove-item/${id}`);
 
 export const resetWeekPlan = data =>
-  API.delete('/weekly-plan/reset', {
-    data
-  });
+  API.delete('/weekly-plan/reset', { data });
 
 export const getAvailableWeeks = () =>
   API.get('/weekly-plan/available-weeks');
 
-// =====================================
-// FEEDBACK
-// =====================================
+/* ==========================
+   FEEDBACK
+========================== */
 
 export const submitFeedback = data =>
   API.post('/feedback', data);
@@ -142,9 +142,9 @@ export const submitFeedback = data =>
 export const getAllFeedback = () =>
   API.get('/feedback');
 
-// =====================================
-// ADMIN
-// =====================================
+/* ==========================
+   ADMIN
+========================== */
 
 export const getAllStudents = () =>
   API.get('/admin/students');
@@ -185,15 +185,12 @@ export const createAdmin = data =>
 export const getAdminList = () =>
   API.get('/admin/list-admins');
 
-// =====================================
-// ARCHIVE
-// =====================================
+/* ==========================
+   ARCHIVE
+========================== */
 
-export const runArchive = (month, year) =>
-  API.post('/archive/run', {
-    month,
-    year
-  });
+export const runArchive = year =>
+  API.post('/archive/run', { year });
 
 export const getArchiveYears = () =>
   API.get('/archive/years');
@@ -208,12 +205,5 @@ export const exportArchive = year =>
   API.get(`/archive/export?year=${year}`, {
     responseType: 'blob'
   });
-
-export const deleteArchive = year =>
-  API.delete(`/archive/${year}`);
-
-// =====================================
-// EXPORT AXIOS INSTANCE
-// =====================================
 
 export default API;
