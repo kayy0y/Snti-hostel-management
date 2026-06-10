@@ -174,18 +174,31 @@ const getMyMenuSelection = async (req, res) => {
   } catch (e) { return res.status(500).json({ success: false, message: 'Server error.' }); }
 };
 
-// GET /api/menus/all-selections  (admin)
+// GET /api/menus/all-selections?week_start=YYYY-MM-DD  (admin)
 const getAllMenuSelections = async (req, res) => {
   try {
-    const week_start = getMonday();
+    const week_start = req.query.week_start || getMonday();
+
     const [rows] = await pool.query(
-      `SELECT ms.*,u.name,u.email,u.trainee_id,u.hostel_block
-       FROM menu_selections ms JOIN users u ON ms.user_id=u.id
-       WHERE ms.week_start=?
-       ORDER BY u.name,FIELD(ms.day_name,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')`,
+      `SELECT ms.*, u.name, u.email, u.trainee_id, u.hostel_block, u.member_type, u.role
+       FROM menu_selections ms JOIN users u ON ms.user_id = u.id
+       WHERE ms.week_start = ?
+       ORDER BY u.name,
+         FIELD(ms.day_name,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')`,
       [week_start]
     );
-    return res.json({ success: true, data: rows, week_start });
+
+    // Also return list of weeks that have any selections (for dropdown)
+    const [weeks] = await pool.query(
+      `SELECT DISTINCT week_start,
+         COUNT(DISTINCT user_id) AS student_count
+       FROM menu_selections
+       GROUP BY week_start
+       ORDER BY week_start DESC
+       LIMIT 12`
+    );
+
+    return res.json({ success: true, data: rows, week_start, available_weeks: weeks });
   } catch (e) { return res.status(500).json({ success: false, message: 'Server error.' }); }
 };
 
