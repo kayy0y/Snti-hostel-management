@@ -30,27 +30,23 @@ const addStudent = async (req, res) => {
 
 const deleteStudent = async (req, res) => {
   try {
-    // Get user details before deactivating (for email)
-    const [rows] = await pool.query(
-      "SELECT id, name, email FROM users WHERE id=? AND role IN ('student','external') AND is_active=1",
-      [req.params.id]
-    );
-    if (!rows.length) return res.status(404).json({ success: false, message: 'Active student not found.' });
-
-    const user = rows[0];
-
-    // Deactivate + mark for deletion after 48hrs
     await pool.query(
-      "UPDATE users SET is_active=0, deactivated_at=NOW(), pending_deletion=1 WHERE id=?",
+      "UPDATE users SET is_active = 0 WHERE id = ?",
       [req.params.id]
     );
 
-    // Send deactivation email immediately (non-blocking)
-    const { sendDeactivationEmail } = require('../utils/emailService');
-    sendDeactivationEmail(user).catch(() => {});
+    return res.json({
+      success: true,
+      message: "Student deactivated."
+    });
+  } catch (e) {
+    console.error("DELETE STUDENT ERROR:", e);
 
-    return res.json({ success: true, message: `${user.name} deactivated. Account will be permanently deleted after 48 hours.` });
-  } catch (e) { return res.status(500).json({ success: false, message: 'Server error.' }); }
+    return res.status(500).json({
+      success: false,
+      message: e.message
+    });
+  }
 };
 
 // ─── POST /api/student/deactivate ─────────────────────────────────────────
