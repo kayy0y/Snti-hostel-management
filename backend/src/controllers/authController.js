@@ -19,11 +19,33 @@ const login = async (req, res) => {
 
   const { email, password, portal } = req.body;
   try {
-    const [rows] = await pool.query('SELECT * FROM users WHERE email=? AND is_active=1', [email]);
+    // Fetch user regardless of is_active — we handle reactivation below
+    const [rows] = await pool.query('SELECT * FROM users WHERE email=?', [email]);
     if (!rows.length)
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
 
     const user = rows[0];
+
+    // Account is deactivated
+    if (!user.is_active) {
+      // pending_deletion=1 means admin deactivated → not reactivatable by self
+      if (user.pending_deletion) {
+        return res.status(403).json({
+          success: false,
+          message: 'This account has been deactivated by admin. Contact the mess office to restore it.',
+        });
+      }
+      // pending_deletion=0 means self-deactivated → reactivate on login
+      const ok = await bcrypt.compare(password, user.password);
+      if (!ok) return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+
+      // Reactivate
+      await pool.query(
+        'UPDATE users SET is_active=1, deactivated_at=NULL WHERE id=?',
+        [user.id]
+      );
+      user.is_active = 1;
+    }
 
     if (portal === 'admin' && user.role !== 'admin')
       return res.status(403).json({ success: false, message: 'This account does not have admin access.' });

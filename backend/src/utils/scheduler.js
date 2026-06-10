@@ -41,12 +41,76 @@ const runWeeklyReset = async () => {
   console.log(`[Scheduler] Weekly reset: ${r.affectedRows} old rows`);
 };
 
+// ── Hard-delete accounts pending deletion after 48hrs ────────────────────
+
+const runPendingDeletions = async () => {
+  try {
+    console.log('[Scheduler] Checking pending deletions...');
+    const [users] = await pool.query(
+      `SELECT id, name, email FROM users
+       WHERE pending_deletion=1
+         AND is_active=0
+         AND deactivated_at IS NOT NULL
+         AND deactivated_at <= DATE_SUB(NOW(), INTERVAL 48 HOUR)`
+    );
+
+    if (!users.length) { console.log('[Scheduler] No pending deletions.'); return; }
+
+    for (const user of users) {
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+
+        // Snapshot to archive before deleting (avoid CASCADE data loss)
+        await conn.query(
+          `INSERT IGNORE INTO archived_registrations (
+             id, user_id, mess_type, registration_date, expiry_date, status,
+             payment_proof, approval_status, approved_by, approved_at, created_at,
+             user_name, user_email, user_phone, user_trainee_id, user_trainee_type,
+             user_hostel_block, user_member_type, user_role, archive_year, archived_by
+           )
+           SELECT r.id, r.user_id, r.mess_type, r.registration_date, r.expiry_date, r.status,
+                  r.payment_proof, r.approval_status, r.approved_by, r.approved_at, r.created_at,
+                  u.name, u.email, u.phone, u.trainee_id, u.trainee_type,
+                  u.hostel_block, u.member_type, u.role, YEAR(NOW()), u.id
+           FROM registrations r JOIN users u ON r.user_id=u.id WHERE r.user_id=?`,
+          [user.id]
+        );
+        await conn.query(
+          `INSERT IGNORE INTO archived_feedback (
+             id, user_id, rating, category, comments, created_at,
+             user_name, user_email, archive_year, archived_by
+           )
+           SELECT f.id, f.user_id, f.rating, f.category, f.comments, f.created_at,
+                  u.name, u.email, YEAR(NOW()), u.id
+           FROM feedback f JOIN users u ON f.user_id=u.id WHERE f.user_id=?`,
+          [user.id]
+        );
+
+        // Hard delete user (CASCADE removes registrations, feedback, etc.)
+        await conn.query('DELETE FROM users WHERE id=?', [user.id]);
+        await conn.commit();
+        console.log(`[Scheduler] Permanently deleted user: ${user.email}`);
+      } catch (err) {
+        await conn.rollback();
+        console.error(`[Scheduler] Failed to delete ${user.email}:`, err.message);
+      } finally {
+        conn.release();
+      }
+    }
+    console.log(`[Scheduler] Pending deletions done. ${users.length} accounts removed.`);
+  } catch (err) {
+    console.error('[Scheduler] Pending deletion error:', err.message);
+  }
+};
+
 const startScheduler = () => {
-  cron.schedule('0 0 * * *', runExpiryCleanup,  { timezone:'Asia/Kolkata' });
-  cron.schedule('0 9 * * *', runExpiryWarnings, { timezone:'Asia/Kolkata' });
-  cron.schedule('0 7 * * *', runMenuReminders,  { timezone:'Asia/Kolkata' });
-  cron.schedule('1 0 * * 1', runWeeklyReset,    { timezone:'Asia/Kolkata' });
-  console.log('Schedulers started (IST)');
+  cron.schedule('0 0 * * *', runExpiryCleanup,    { timezone:'Asia/Kolkata' });
+  cron.schedule('0 9 * * *', runExpiryWarnings,   { timezone:'Asia/Kolkata' });
+  cron.schedule('0 7 * * *', runMenuReminders,    { timezone:'Asia/Kolkata' });
+  cron.schedule('1 0 * * 1', runWeeklyReset,      { timezone:'Asia/Kolkata' });
+  cron.schedule('0 1 * * *', runPendingDeletions, { timezone:'Asia/Kolkata' }); // 1am daily
+  console.log('Schedulers started (IST): expiry, warnings, reminders, menu reset, pending deletions');
 };
 
 module.exports = { startScheduler };

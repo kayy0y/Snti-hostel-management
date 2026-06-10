@@ -186,6 +186,18 @@ export const getAdminList = () =>
   API.get('/admin/list-admins');
 
 /* ==========================
+   STUDENT SELF SERVICE
+========================== */
+
+export const deactivateSelf = () =>
+  API.post('/student/deactivate');
+
+export const deleteSelf = email =>
+  API.delete('/student/delete-account', {
+    data: { email }
+  });
+
+/* ==========================
    ARCHIVE
 ========================== */
 
@@ -211,3 +223,9 @@ export const exportArchive = year =>
 
 export const deleteArchive = year =>
   API.delete(`/archive/${year}`);
+
+/* ==========================
+   EXPORT AXIOS INSTANCE
+========================== */
+
+export default API;

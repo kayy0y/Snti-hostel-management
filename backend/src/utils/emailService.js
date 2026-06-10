@@ -56,4 +56,21 @@ const sendDailyMenuReminder = (user, menu) => {
   ), user.id, 'menu_reminder');
 };
 
-module.exports = { sendRegistrationSuccess, sendApprovalNotification, sendExpiryWarning, sendDailyMenuReminder };
+module.exports = { sendRegistrationSuccess, sendApprovalNotification, sendExpiryWarning, sendDailyMenuReminder, sendDeactivationEmail };
+
+function sendDeactivationEmail(user) {
+  const deletionTime = new Date(Date.now() + 48 * 60 * 60 * 1000).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+  return send(user.email, 'Your SNTI Hostel Mess Account Has Been Deactivated', wrap('Account Deactivated',
+    `<p>Hello <strong>${user.name}</strong>,</p>
+     <p>Your mess account has been <strong style="color:#dc2626">deactivated</strong>.</p>
+     <div class="box">
+       <div class="row"><span class="lbl">Account</span><span class="val">${user.email}</span></div>
+       <div class="row"><span class="lbl">Deactivated On</span><span class="val">${new Date().toLocaleString('en-IN')}</span></div>
+       <div class="row"><span class="lbl">Permanent Deletion</span><span class="val" style="color:#dc2626">${deletionTime}</span></div>
+     </div>
+     <p style="font-size:13px;color:#6b7280">
+       If this was done by mistake, please contact the mess admin immediately to restore your account before the deletion deadline.
+       After <strong>${deletionTime}</strong>, your account will be permanently removed.
+     </p>`
+  ), user.id, 'deactivation');
+}

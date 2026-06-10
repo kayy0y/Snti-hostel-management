@@ -71,6 +71,10 @@ router.get('/admin/export-pdf',         protect, adminOnly, admin.exportPDF);
 router.post('/admin/create-admin',      protect, adminOnly, admin.createAdmin);
 router.get('/admin/list-admins',        protect, adminOnly, admin.getAdminList);
 
+// ── Student self-service account management ───────────────────────────────
+router.post('/student/deactivate',      protect, studentOnly, admin.deactivateSelf);
+router.delete('/student/delete-account',protect, studentOnly, admin.deleteSelf);
+
 // ── Archive ───────────────────────────────────────────────────────────────
 const archive  = require('../controllers/archiveController');
 router.post('/archive/run',                    protect, adminOnly, archive.runArchive);
