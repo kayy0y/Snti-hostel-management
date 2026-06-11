@@ -412,4 +412,6 @@ module.exports = {
   deactivateSelf,
   deleteSelf,
   resetBatch
+
 };
+
