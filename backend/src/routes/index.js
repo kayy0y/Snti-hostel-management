@@ -59,9 +59,11 @@ router.post('/feedback', protect, studentOnly, [ body('rating').isInt({min:1,max
 router.get('/feedback',  protect, adminOnly, fb.getAllFeedback);
 
 // ── Admin ─────────────────────────────────────────────────────────────────
-router.get('/admin/students',           protect, adminOnly, admin.getAllStudents);
-router.post('/admin/students',          protect, adminOnly, admin.addStudent);
-router.delete('/admin/students/:id',    protect, adminOnly, admin.deleteStudent);
+router.get('/admin/students',              protect, adminOnly, admin.getAllStudents);
+router.post('/admin/students',             protect, adminOnly, admin.addStudent);
+router.delete('/admin/students/:id',       protect, adminOnly, admin.deleteStudent);
+router.delete('/admin/students/:id/now',   protect, adminOnly, admin.deleteStudentNow);
+router.post('/admin/reset-batch',          protect, adminOnly, admin.resetBatch);
 router.delete('/admin/expired-users',   protect, adminOnly, admin.deleteExpiredUsers);
 router.get('/admin/dashboard-stats',    protect, adminOnly, admin.getDashboardStats);
 router.get('/admin/quick-analytics',    protect, adminOnly, admin.getQuickAnalytics);

@@ -30,23 +30,27 @@ const addStudent = async (req, res) => {
 
 const deleteStudent = async (req, res) => {
   try {
+    // Get user details before deactivating (for email)
+    const [rows] = await pool.query(
+      "SELECT id, name, email FROM users WHERE id=? AND role IN ('student','external') AND is_active=1",
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ success: false, message: 'Active student not found.' });
+
+    const user = rows[0];
+
+    // Deactivate + mark for deletion after 48hrs
     await pool.query(
-      "UPDATE users SET is_active = 0 WHERE id = ?",
+      "UPDATE users SET is_active=0, deactivated_at=NOW(), pending_deletion=1 WHERE id=?",
       [req.params.id]
     );
 
-    return res.json({
-      success: true,
-      message: "Student deactivated."
-    });
-  } catch (e) {
-    console.error("DELETE STUDENT ERROR:", e);
+    // Send deactivation email immediately (non-blocking)
+    const { sendDeactivationEmail } = require('../utils/emailService');
+    sendDeactivationEmail(user).catch(() => {});
 
-    return res.status(500).json({
-      success: false,
-      message: e.message
-    });
-  }
+    return res.json({ success: true, message: `${user.name} deactivated. Account will be permanently deleted after 48 hours.` });
+  } catch (e) { return res.status(500).json({ success: false, message: 'Server error.' }); }
 };
 
 // ─── POST /api/student/deactivate ─────────────────────────────────────────
@@ -63,7 +67,6 @@ const deactivateSelf = async (req, res) => {
 };
 
 // ─── DELETE /api/student/delete-account ───────────────────────────────────
-// Student hard-deletes their own account immediately.
 
 const deleteSelf = async (req, res) => {
   const { email } = req.body;
@@ -114,13 +117,21 @@ const deleteSelf = async (req, res) => {
     await conn.commit();
     return res.json({ success: true, message: 'Your account has been permanently deleted.' });
   } catch (e) {
+  try {
     await conn.rollback();
-    console.error('deleteSelf error:', e);
-    return res.status(500).json({ success: false, message: 'Server error.' });
-  } finally {
-    conn.release();
+  } catch (rollbackError) {
+    console.error('Rollback failed:', rollbackError);
   }
-};
+
+  console.error('deleteSelf error:', e);
+
+  return res.status(500).json({
+    success: false,
+    message: 'Server error.'
+  });
+} finally {
+  conn.release();
+}
 
 const deleteExpiredUsers = async (req, res) => {
   try {
@@ -211,7 +222,7 @@ const exportPDF = async (req, res) => {
       doc.text(s.trainee_id||'-', cols[1], y, { width: 91 });
       doc.text((s.trainee_type||s.member_type||'-').slice(0,12), cols[2], y, { width: 81 });
       doc.text(s.mess_type||'Not Reg.', cols[3], y, { width: 76 });
-      doc.text(s.expiry_date||'-', cols[4], y, { width: 86 });
+      doc.text( s.expiry_date ? new Date(s.expiry_date).toLocaleDateString('en-IN'): '-', cols[4], y, { width: 86 });
       doc.fillColor(s.approval_status==='approved'?'#15803d':s.approval_status==='pending'?'#a16207':'#6b7280')
          .text(s.approval_status||s.status||'-', cols[5], y, { width: 50 });
       y += 15;
@@ -261,4 +272,217 @@ const getAnalytics = async (req, res) => {
   } catch (e) { return res.status(500).json({ success: false, message: 'Server error.' }); }
 };
 
-module.exports = { getAllStudents, addStudent, deleteStudent, deactivateSelf, deleteSelf, deleteExpiredUsers, getDashboardStats, getQuickAnalytics, exportReport, exportPDF, createAdmin, getAdminList, getAnalytics };
+
+
+// ─── DELETE /api/admin/students/:id/now ───────────────────────────────────
+// Permanently deletes a single student immediately.
+// Optional: archive their data first if body.archive = true
+async function deleteStudentNow(req, res) {
+  const archive = req.body?.archive === true;
+
+  // Validate ID
+  const studentId = Number(req.params.id);
+  if (!Number.isInteger(studentId) || studentId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid student ID.'
+    });
+  }
+
+  const conn = await pool.getConnection();
+
+  try {
+    // Verify student exists
+    const [rows] = await conn.query(
+      `SELECT id, name, email, phone, trainee_id, trainee_type,
+              hostel_block, member_type, role
+       FROM users
+       WHERE id = ?
+       AND role IN ('student','external')`,
+      [studentId]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found.'
+      });
+    }
+
+    await conn.beginTransaction();
+
+    if (archive) {
+      // Archive registrations
+      await conn.query(
+        `INSERT IGNORE INTO archived_registrations (
+           id, user_id, mess_type, registration_date, expiry_date, status,
+           payment_proof, approval_status, approved_by, approved_at, created_at,
+           user_name, user_email, user_phone, user_trainee_id, user_trainee_type,
+           user_hostel_block, user_member_type, user_role,
+           archive_year, archived_by
+         )
+         SELECT
+           r.id, r.user_id, r.mess_type, r.registration_date,
+           r.expiry_date, r.status, r.payment_proof,
+           r.approval_status, r.approved_by, r.approved_at,
+           r.created_at,
+           u.name, u.email, u.phone,
+           u.trainee_id, u.trainee_type,
+           u.hostel_block, u.member_type, u.role,
+           YEAR(NOW()), ?
+         FROM registrations r
+         JOIN users u ON r.user_id = u.id
+         WHERE r.user_id = ?`,
+        [req.user.id, studentId]
+      );
+
+      // Archive feedback
+      await conn.query(
+        `INSERT IGNORE INTO archived_feedback (
+           id, user_id, rating, category, comments, created_at,
+           user_name, user_email, archive_year, archived_by
+         )
+         SELECT
+           f.id, f.user_id, f.rating, f.category,
+           f.comments, f.created_at,
+           u.name, u.email,
+           YEAR(NOW()), ?
+         FROM feedback f
+         JOIN users u ON f.user_id = u.id
+         WHERE f.user_id = ?`,
+        [req.user.id, studentId]
+      );
+    }
+
+    // Extra safety: only delete student/external accounts
+    const [result] = await conn.query(
+      `DELETE FROM users
+       WHERE id = ?
+       AND role IN ('student','external')`,
+      [studentId]
+    );
+
+    if (result.affectedRows === 0) {
+      throw new Error('Delete operation failed.');
+    }
+
+    await conn.commit();
+
+    return res.json({
+      success: true,
+      message: `${rows[0].name} permanently deleted.${archive ? ' Data archived.' : ''}`
+    });
+
+  } catch (e) {
+    try {
+      await conn.rollback();
+    } catch (_) {
+      // Ignore rollback errors
+    }
+
+    console.error('deleteStudentNow error:', e);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Delete failed. Changes rolled back.'
+    });
+
+  } finally {
+    conn.release();
+  }
+};
+// ─── POST /api/admin/reset-batch ──────────────────────────────────────────
+// Deletes ALL students and externals (not admins).
+// Keeps: admins, settings, menus, weekly_menu_plan.
+// Deletes: users (student/external), their registrations, feedback,
+//          menu_selections, email_logs (via CASCADE).
+// Optional: archive data first if body.archive = true
+async function resetBatch(req, res) {
+  const archive = req.body?.archive === true;
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    if (archive) {
+      // Archive all registrations
+      await conn.query(
+        `INSERT IGNORE INTO archived_registrations (
+           id, user_id, mess_type, registration_date, expiry_date, status,
+           payment_proof, approval_status, approved_by, approved_at, created_at,
+           user_name, user_email, user_phone, user_trainee_id, user_trainee_type,
+           user_hostel_block, user_member_type, user_role, archive_year, archived_by
+         )
+         SELECT r.id, r.user_id, r.mess_type, r.registration_date, r.expiry_date, r.status,
+                r.payment_proof, r.approval_status, r.approved_by, r.approved_at, r.created_at,
+                u.name, u.email, u.phone, u.trainee_id, u.trainee_type,
+                u.hostel_block, u.member_type, u.role, YEAR(NOW()), ?
+         FROM registrations r
+         JOIN users u ON r.user_id = u.id
+         WHERE u.role IN ('student','external')`,
+        [req.user.id]
+      );
+      // Archive all feedback
+      await conn.query(
+        `INSERT IGNORE INTO archived_feedback (
+           id, user_id, rating, category, comments, created_at,
+           user_name, user_email, archive_year, archived_by
+         )
+         SELECT f.id, f.user_id, f.rating, f.category, f.comments, f.created_at,
+                u.name, u.email, YEAR(NOW()), ?
+         FROM feedback f
+         JOIN users u ON f.user_id = u.id
+         WHERE u.role IN ('student','external')`,
+        [req.user.id]
+      );
+    }
+
+    // Count before deleting for response message
+    const [[{ total }]] = await conn.query(
+      "SELECT COUNT(*) AS total FROM users WHERE role IN ('student','external')"
+    );
+
+    // Hard delete all students/externals — CASCADE cleans everything else
+    await conn.query("DELETE FROM users WHERE role IN ('student','external')");
+
+    await conn.commit();
+
+    return res.json({
+      success: true,
+      message: `Batch reset complete. ${total} accounts deleted.${archive ? ' All data archived first.' : ' No archive was created.'}`,
+      deleted: total,
+    });
+ }  catch (e) {
+  try {
+    await conn.rollback();
+  } catch (rollbackError) {
+    console.error('Rollback failed:', rollbackError);
+  }
+
+  console.error('resetBatch error:', e);
+
+  return res.status(500).json({
+    success: false,
+    message: 'Batch reset failed. All changes rolled back.'
+  });
+} finally {
+  conn.release();
+}
+}
+
+module.exports = {
+  getAllStudents,
+  addStudent,
+  deleteStudent,
+  deactivateSelf,
+  deleteSelf,
+  deleteStudentNow,
+  resetBatch,
+  deleteExpiredUsers,
+  getDashboardStats,
+  getQuickAnalytics,
+  exportReport,
+  exportPDF,
+  createAdmin,
+  getAdminList,
+  getAnalytics
+}};
