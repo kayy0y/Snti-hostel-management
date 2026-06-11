@@ -131,7 +131,7 @@ const deleteSelf = async (req, res) => {
   });
 } finally {
   conn.release();
-}
+};
 
 const deleteExpiredUsers = async (req, res) => {
   try {
