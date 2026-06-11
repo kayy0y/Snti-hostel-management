@@ -19,8 +19,8 @@ const TypeSelection = ({ onSelect }) => (
     </div>
     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem' }}>
       {[
-        { type:'Hostel', icon:'🏠', title:'Hostel Student', desc:'Residing in SNTI hostel premises. Full mess access including dinner.', color:'#1e40af', bg:'#eff6ff' },
-        { type:'Mess Only', icon:'🍱', title:'External Member', desc:'Not residing in hostel. Breakfast and Lunch access only. Monthly fee applies.', color:'#15803d', bg:'#f0fdf4' },
+        { type:'Hostel', title:'Hostel Student', desc:'Residing in SNTI hostel premises. Full mess access including dinner.', color:'#1e40af', bg:'#eff6ff' },
+        { type:'Mess Only', title:'External Member', desc:'Not residing in hostel. Breakfast and Lunch access only. Monthly fee applies.', color:'#15803d', bg:'#f0fdf4' },
       ].map(({ type, icon, title, desc, color, bg }) => (
         <button key={type} onClick={() => onSelect(type)} style={{
           border:`2px solid ${color}20`, borderRadius:12, padding:'1.25rem 1rem',

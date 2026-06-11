@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Navbar from '../../components/shared/Navbar';
-import { getAllRegistrations, approveRegistration, deleteStudent } from '../../utils/api';
+import { getAllRegistrations, approveRegistration, deleteStudent, deleteStudentNow } from '../../utils/api';
 import toast from 'react-hot-toast';
 
 // Format date from ISO or YYYY-MM-DD to DD/MM/YYYY
@@ -39,12 +39,23 @@ export default function RegistrationsPage() {
   };
 
   const handleDeactivate = async (userId, name) => {
-    if (!window.confirm(`Deactivate account for ${name}? They will lose access.`)) return;
+    if (!window.confirm(`Deactivate account for ${name}? Account will be permanently deleted after 48 hours.`)) return;
     try {
       await deleteStudent(userId);
-      toast.success(`${name} deactivated.`);
+      toast.success(`${name} deactivated. Will be deleted in 48hrs.`);
       load();
     } catch { toast.error('Deactivation failed.'); }
+  };
+
+  const handleDeleteNow = async (userId, name) => {
+    const archive = window.confirm(`Permanently delete ${name}?\n\nOK = delete AND archive data first.\nCancel = delete WITHOUT archiving.`);
+    const proceed = window.confirm(`This will PERMANENTLY delete ${name}. Cannot be undone. Proceed?`);
+    if (!proceed) return;
+    try {
+      await deleteStudentNow(userId, archive);
+      toast.success(`${name} permanently deleted.${archive ? ' Data archived.' : ''}`);
+      load();
+    } catch (err) { toast.error(err.response?.data?.message || 'Delete failed.'); }
   };
 
   const FILTERS = ['all', 'active', 'expired', 'pending'];
@@ -187,35 +198,24 @@ export default function RegistrationsPage() {
 
                         <td>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '.3rem' }}>
-                            {/* Approve / Reject for pending */}
                             {r.approval_status === 'pending' && !isInactive && (
                               <div style={{ display: 'flex', gap: '.3rem' }}>
-                                <button
-                                  className="btn btn-success btn-sm"
-                                  style={{ fontSize: '.72rem' }}
-                                  onClick={() => handleApproval(r.id, 'approve', r.name)}
-                                >
-                                  Approve
-                                </button>
-                                <button
-                                  className="btn btn-danger btn-sm"
-                                  style={{ fontSize: '.72rem' }}
-                                  onClick={() => handleApproval(r.id, 'reject', r.name)}
-                                >
-                                  Reject
-                                </button>
+                                <button className="btn btn-success btn-sm" style={{ fontSize: '.72rem' }} onClick={() => handleApproval(r.id, 'approve', r.name)}>Approve</button>
+                                <button className="btn btn-danger  btn-sm" style={{ fontSize: '.72rem' }} onClick={() => handleApproval(r.id, 'reject',  r.name)}>Reject</button>
                               </div>
                             )}
-                            {/* Deactivate — only if user is still active */}
                             {!isInactive && (
-                              <button
-                                className="btn btn-danger btn-sm"
-                                style={{ fontSize: '.72rem' }}
-                                onClick={() => handleDeactivate(r.user_id, r.name)}
-                              >
+                              <button className="btn btn-danger btn-sm" style={{ fontSize: '.72rem' }} onClick={() => handleDeactivate(r.user_id, r.name)}>
                                 Deactivate
                               </button>
                             )}
+                            <button
+                              className="btn btn-sm"
+                              style={{ background: '#7f1d1d', color: '#fff', fontSize: '.72rem' }}
+                              onClick={() => handleDeleteNow(r.user_id, r.name)}
+                            >
+                              Delete Now
+                            </button>
                           </div>
                         </td>
                       </tr>
