@@ -10,48 +10,40 @@ const reg = require('../controllers/registrationController');
 const fb = require('../controllers/feedbackController');
 const admin = require('../controllers/adminController');
 const settings = require('../controllers/settingsController');
+const archive = require('../controllers/archiveController');
 
 
-// ================= AUTH =================
+// ======================================================
+// AUTH
+// ======================================================
 
 router.post('/auth/login', [
   body('email').isEmail(),
   body('password').notEmpty(),
-  body('portal').isIn(['student','admin']),
+  body('portal').isIn(['student', 'admin'])
 ], auth.login);
-
 
 router.post('/auth/register', [
   body('name').trim().notEmpty(),
   body('email').isEmail(),
   body('password')
-    .isLength({min:8})
+    .isLength({ min: 8 })
     .matches(/[A-Z]/)
     .matches(/[0-9]/),
-
-  body('phone').matches(/^\d{10}$/),
-
+  body('phone').matches(/^\d{10}$/)
 ], auth.register);
 
-
 router.get('/auth/me', protect, auth.getMe);
-
 router.post('/auth/forgot-password', auth.forgotPassword);
-
 router.post('/auth/verify-otp', auth.verifyOTP);
-
 router.post('/auth/reset-password', auth.resetPassword);
 
 
+// ======================================================
+// SETTINGS
+// ======================================================
 
-
-// ================= SETTINGS =================
-
-router.get(
-  '/settings/upi-qr',
-  settings.getPublicUPIQR
-);
-
+router.get('/settings/upi-qr', settings.getPublicUPIQR);
 
 router.get(
   '/settings',
@@ -59,7 +51,6 @@ router.get(
   adminOnly,
   settings.getSettings
 );
-
 
 router.put(
   '/settings',
@@ -69,10 +60,9 @@ router.put(
 );
 
 
-
-
-// ================= REGISTRATIONS =================
-
+// ======================================================
+// REGISTRATIONS
+// ======================================================
 
 router.post(
   '/registrations',
@@ -80,11 +70,10 @@ router.post(
   studentOnly,
   [
     body('mess_type')
-    .isIn(['Veg','Non-Veg','Special','Breakfast+Lunch'])
+      .isIn(['Veg', 'Non-Veg', 'Special', 'Breakfast+Lunch'])
   ],
   reg.createRegistration
 );
-
 
 router.get(
   '/registrations/my',
@@ -93,14 +82,12 @@ router.get(
   reg.getMyRegistration
 );
 
-
 router.get(
   '/registrations',
   protect,
   adminOnly,
   reg.getAllRegistrations
 );
-
 
 router.put(
   '/registrations/:id/approve',
@@ -110,17 +97,11 @@ router.put(
 );
 
 
+// ======================================================
+// MENUS
+// ======================================================
 
-
-// ================= MENUS =================
-
-
-router.get(
-  '/menus',
-  protect,
-  menu.getMenus
-);
-
+router.get('/menus', protect, menu.getMenus);
 
 router.post(
   '/menus',
@@ -128,18 +109,13 @@ router.post(
   adminOnly,
   [
     body('meal_type')
-    .isIn(['Breakfast','Lunch','Dinner']),
-
-    body('item_name')
-    .notEmpty(),
-
+      .isIn(['Breakfast', 'Lunch', 'Dinner']),
+    body('item_name').notEmpty(),
     body('category')
-    .isIn(['Veg','Non-Veg','Special'])
+      .isIn(['Veg', 'Non-Veg', 'Special'])
   ],
-
   menu.addMenuItem
 );
-
 
 router.delete(
   '/menus/:id',
@@ -148,7 +124,6 @@ router.delete(
   menu.deleteMenuItem
 );
 
-
 router.post(
   '/menus/select',
   protect,
@@ -156,14 +131,12 @@ router.post(
   menu.selectMenu
 );
 
-
 router.get(
   '/menus/my-selection',
   protect,
   studentOnly,
   menu.getMyMenuSelection
 );
-
 
 router.get(
   '/menus/all-selections',
@@ -173,18 +146,15 @@ router.get(
 );
 
 
-
-
-
-// ================= WEEKLY PLAN =================
-
+// ======================================================
+// WEEKLY PLAN
+// ======================================================
 
 router.get(
   '/weekly-plan',
   protect,
   menu.getWeeklyPlan
 );
-
 
 router.post(
   '/weekly-plan/add-item',
@@ -193,7 +163,6 @@ router.post(
   menu.addItemToPlan
 );
 
-
 router.delete(
   '/weekly-plan/remove-item/:plan_id',
   protect,
@@ -201,14 +170,12 @@ router.delete(
   menu.removeItemFromPlan
 );
 
-
 router.delete(
   '/weekly-plan/reset',
   protect,
   adminOnly,
   menu.resetWeekPlan
 );
-
 
 router.get(
   '/weekly-plan/available-weeks',
@@ -218,33 +185,26 @@ router.get(
 );
 
 
-
-
-
-// ================= FEEDBACK =================
-
+// ======================================================
+// FEEDBACK
+// ======================================================
 
 router.post(
   '/feedback',
   protect,
   studentOnly,
   [
-    body('rating')
-    .isInt({min:1,max:5}),
-
-    body('category')
-    .isIn([
+    body('rating').isInt({ min: 1, max: 5 }),
+    body('category').isIn([
       'Food Quality',
       'Cleanliness',
       'Service',
       'Variety',
       'Other'
     ])
-
   ],
   fb.submitFeedback
 );
-
 
 router.get(
   '/feedback',
@@ -254,14 +214,9 @@ router.get(
 );
 
 
-
-
-
-
-// ================= ADMIN =================
-
-
-// available in your current adminController.js
+// ======================================================
+// ADMIN
+// ======================================================
 
 router.get(
   '/admin/students',
@@ -270,14 +225,12 @@ router.get(
   admin.getAllStudents
 );
 
-
 router.post(
   '/admin/students',
   protect,
   adminOnly,
   admin.addStudent
 );
-
 
 router.delete(
   '/admin/students/:id',
@@ -286,14 +239,12 @@ router.delete(
   admin.deleteStudent
 );
 
-
 router.delete(
   '/admin/students/:id/now',
   protect,
   adminOnly,
   admin.deleteStudentNow
 );
-
 
 router.post(
   '/admin/reset-batch',
@@ -303,11 +254,61 @@ router.post(
 );
 
 
+// ---------- Dashboard ----------
+
+router.get(
+  '/admin/dashboard-stats',
+  protect,
+  adminOnly,
+  admin.getDashboardStats
+);
+
+router.get(
+  '/admin/quick-analytics',
+  protect,
+  adminOnly,
+  admin.getQuickAnalytics
+);
+
+router.delete(
+  '/admin/expired-users',
+  protect,
+  adminOnly,
+  admin.deleteExpiredUsers
+);
+
+router.get(
+  '/admin/export-excel',
+  protect,
+  adminOnly,
+  admin.exportExcel
+);
+
+router.get(
+  '/admin/export-pdf',
+  protect,
+  adminOnly,
+  admin.exportPDF
+);
+
+router.post(
+  '/admin/create-admin',
+  protect,
+  adminOnly,
+  admin.createAdmin
+);
+
+router.get(
+  '/admin/list-admins',
+  protect,
+  adminOnly,
+  admin.getAdminList
+);
 
 
-
-// ================= STUDENT ACCOUNT =================
-
+// ======================================================
+// STUDENT SELF SERVICE
+// ======================================================
 
 router.post(
   '/student/deactivate',
@@ -315,7 +316,6 @@ router.post(
   studentOnly,
   admin.deactivateSelf
 );
-
 
 router.delete(
   '/student/delete-account',
@@ -325,13 +325,9 @@ router.delete(
 );
 
 
-
-
-
-// ================= ARCHIVE =================
-
-const archive = require('../controllers/archiveController');
-
+// ======================================================
+// ARCHIVE
+// ======================================================
 
 router.post(
   '/archive/run',
@@ -340,14 +336,12 @@ router.post(
   archive.runArchive
 );
 
-
 router.get(
   '/archive/years',
   protect,
   adminOnly,
   archive.getArchiveYears
 );
-
 
 router.get(
   '/archive/registrations',
@@ -356,14 +350,12 @@ router.get(
   archive.getArchivedRegistrations
 );
 
-
 router.get(
   '/archive/feedback',
   protect,
   adminOnly,
   archive.getArchivedFeedback
 );
-
 
 router.get(
   '/archive/export',
@@ -372,14 +364,12 @@ router.get(
   archive.exportArchive
 );
 
-
 router.delete(
   '/archive/:year',
   protect,
   adminOnly,
   archive.deleteArchive
 );
-
 
 
 module.exports = router;
