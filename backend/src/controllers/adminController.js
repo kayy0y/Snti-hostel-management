@@ -299,79 +299,194 @@ return res.status(400).json({
 success:false,
 message:'Email confirmation required.'
 });
-
-
 if(email.toLowerCase()!==req.user.email.toLowerCase()){
-
 return res.status(400).json({
 success:false,
 message:'Email does not match.'
 });
-
 }
-
-
-
 const conn=await pool.getConnection();
-
-
 try{
-
-
 await conn.beginTransaction();
-
-
-
 await conn.query(
 "DELETE FROM users WHERE id=?",
 [req.user.id]
 );
-
-
-
 await conn.commit();
-
-
-
 return res.json({
 success:true,
 message:'Account deleted.'
 });
-
-
 }catch(e){
-
-
 await conn.rollback();
-
-
 return res.status(500).json({
 success:false,
 message:'Server error.'
 });
-
-
 }finally{
-
 conn.release();
-
 }
+};
+const resetBatch = async (req, res) => {
+  const { archive } = req.body;
 
+  const conn = await pool.getConnection();
+
+  try {
+    await conn.beginTransaction();
+
+    if (archive) {
+
+      await conn.query(
+        `INSERT IGNORE INTO archived_registrations (
+          id,
+          user_id,
+          mess_type,
+          registration_date,
+          expiry_date,
+          status,
+          payment_proof,
+          approval_status,
+          approved_by,
+          approved_at,
+          created_at,
+          user_name,
+          user_email,
+          user_phone,
+          user_trainee_id,
+          user_trainee_type,
+          user_hostel_block,
+          user_member_type,
+          user_role,
+          archive_year,
+          archived_by
+        )
+        SELECT
+          r.id,
+          r.user_id,
+          r.mess_type,
+          r.registration_date,
+          r.expiry_date,
+          r.status,
+          r.payment_proof,
+          r.approval_status,
+          r.approved_by,
+          r.approved_at,
+          r.created_at,
+          u.name,
+          u.email,
+          u.phone,
+          u.trainee_id,
+          u.trainee_type,
+          u.hostel_block,
+          u.member_type,
+          u.role,
+          YEAR(NOW()),
+          ?
+        FROM registrations r
+        JOIN users u 
+        ON r.user_id = u.id`,
+        [req.user.id]
+      );
+
+
+      await conn.query(
+        `INSERT IGNORE INTO archived_feedback (
+          id,
+          user_id,
+          rating,
+          category,
+          comments,
+          created_at,
+          user_name,
+          user_email,
+          archive_year,
+          archived_by
+        )
+        SELECT
+          f.id,
+          f.user_id,
+          f.rating,
+          f.category,
+          f.comments,
+          f.created_at,
+          u.name,
+          u.email,
+          YEAR(NOW()),
+          ?
+        FROM feedback f
+        JOIN users u 
+        ON f.user_id=u.id`,
+        [req.user.id]
+      );
+
+    }
+
+
+    await conn.query(
+      `DELETE FROM users 
+       WHERE role IN ('student','external')`
+    );
+
+
+    await conn.commit();
+
+
+    return res.json({
+      success:true,
+      message: archive
+        ? 'Batch reset completed and data archived.'
+        : 'Batch reset completed.'
+    });
+
+
+  } catch(err){
+
+    await conn.rollback();
+
+    console.error('resetBatch error:',err);
+
+
+    return res.status(500).json({
+      success:false,
+      message:'Server error.'
+    });
+
+
+  } finally {
+
+    conn.release();
+
+  }
 };
 
 
 
+module.exports = {
 
-// keep your existing functions here:
-// resetBatch
-// deleteExpiredUsers
-// getDashboardStats
-// getQuickAnalytics
-// exportReport
-// exportPDF
-// createAdmin
-// getAdminList
-// getAnalytics
+  getAllStudents,
+  addStudent,
+  deleteStudent,
+  deactivateSelf,
+  deleteSelf,
+
+  deleteStudentNow,
+
+  resetBatch,
+
+  deleteExpiredUsers,
+  getDashboardStats,
+  getQuickAnalytics,
+
+  exportReport,
+  exportPDF,
+
+  createAdmin,
+  getAdminList,
+
+  getAnalytics
+
+};
 
 
 
