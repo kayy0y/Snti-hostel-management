@@ -4,134 +4,25 @@ const PDFDocument = require('pdfkit');
 const { pool } = require('../config/db');
 
 
-const getAllStudents = async (req, res) => {
-  try {
-    const [rows] = await pool.query(
-      "SELECT id,name,email,phone,trainee_id,trainee_type,hostel_block,member_type,role,is_active,created_at FROM users WHERE role IN ('student','external') ORDER BY created_at DESC"
-    );
-
-    return res.json({ success:true, data:rows });
-
-  } catch(e){
-    return res.status(500).json({success:false,message:'Server error.'});
-  }
-};
-
-
-const addStudent = async(req,res)=>{
-  const {
-    name,email,password,
-    trainee_id,
-    trainee_type,
-    hostel_block,
-    member_type
-  } = req.body;
-
-  if(!name || !email || !password){
-    return res.status(400).json({
-      success:false,
-      message:'Name, email, password required.'
-    });
-  }
-
-  try{
-
-    const [ex] = await pool.query(
-      'SELECT id FROM users WHERE email=?',
-      [email]
-    );
-
-    if(ex.length){
-      return res.status(409).json({
-        success:false,
-        message:'Email already exists.'
-      });
-    }
-
-
-    const hash = await bcrypt.hash(password,12);
-
-    const role =
-      member_type === 'Mess Only'
-      ? 'external'
-      : 'student';
-
-
-    const [r] = await pool.query(
-      `INSERT INTO users
-      (name,email,password,trainee_id,trainee_type,hostel_block,member_type,role)
-      VALUES(?,?,?,?,?,?,?,?)`,
-      [
-        name,
-        email,
-        hash,
-        trainee_id || null,
-        trainee_type || null,
-        hostel_block || null,
-        member_type || 'Hostel',
-        role
-      ]
-    );
-
-
-    return res.status(201).json({
-      success:true,
-      data:{
-        id:r.insertId,
-        name,
-        email,
-        role
-      }
-    });
-
-
-  }catch(e){
-
-    return res.status(500).json({
-      success:false,
-      message:'Server error.'
-    });
-
-  }
-};
-
-
-
-const deleteStudent = async(req,res)=>{
+// GET ALL STUDENTS
+const getAllStudents = async (req,res)=>{
 
 try{
 
-const [rows]=await pool.query(
-"SELECT id,name FROM users WHERE id=? AND role IN ('student','external') AND is_active=1",
-[req.params.id]
+const [rows] = await pool.query(
+"SELECT id,name,email,phone,trainee_id,trainee_type,hostel_block,member_type,role,is_active,created_at FROM users WHERE role IN ('student','external') ORDER BY created_at DESC"
 );
 
 
-if(!rows.length){
-return res.status(404).json({
-success:false,
-message:'Student not found.'
-});
-}
-
-
-
-await pool.query(
-"UPDATE users SET is_active=0,pending_deletion=1,deactivated_at=NOW() WHERE id=?",
-[req.params.id]
-);
-
-
-
-return res.json({
+res.json({
 success:true,
-message:`${rows[0].name} deactivated.`
+data:rows
 });
 
 
 }catch(e){
 
-return res.status(500).json({
+res.status(500).json({
 success:false,
 message:'Server error.'
 });
@@ -140,8 +31,181 @@ message:'Server error.'
 
 };
 
-// FIXED FUNCTION
+
+
+
+// ADD STUDENT
+const addStudent = async(req,res)=>{
+
+const {
+name,
+email,
+password,
+trainee_id,
+trainee_type,
+hostel_block,
+member_type
+}=req.body;
+
+
+if(!name || !email || !password){
+
+return res.status(400).json({
+success:false,
+message:'Name, email, password required.'
+});
+
+}
+
+
+try{
+
+
+const [exist] = await pool.query(
+"SELECT id FROM users WHERE email=?",
+[email]
+);
+
+
+if(exist.length){
+
+return res.status(409).json({
+success:false,
+message:'Email already exists.'
+});
+
+}
+
+
+
+const hash = await bcrypt.hash(password,12);
+
+
+const role =
+member_type === 'Mess Only'
+?'external'
+:'student';
+
+
+
+const [result] = await pool.query(
+
+`INSERT INTO users
+(name,email,password,trainee_id,trainee_type,hostel_block,member_type,role)
+
+VALUES(?,?,?,?,?,?,?,?)`,
+
+[
+name,
+email,
+hash,
+trainee_id || null,
+trainee_type || null,
+hostel_block || null,
+member_type || 'Hostel',
+role
+]
+
+);
+
+
+
+res.status(201).json({
+
+success:true,
+
+data:{
+id:result.insertId,
+name,
+email,
+role
+}
+
+});
+
+
+}catch(e){
+
+res.status(500).json({
+success:false,
+message:'Server error.'
+});
+
+}
+
+};
+
+
+
+
+
+// DEACTIVATE STUDENT
+const deleteStudent = async(req,res)=>{
+
+
+try{
+
+
+const [rows] = await pool.query(
+
+"SELECT id,name FROM users WHERE id=? AND role IN ('student','external') AND is_active=1",
+
+[req.params.id]
+
+);
+
+
+
+if(!rows.length){
+
+return res.status(404).json({
+success:false,
+message:'Student not found.'
+});
+
+}
+
+
+
+await pool.query(
+
+"UPDATE users SET is_active=0,pending_deletion=1,deactivated_at=NOW() WHERE id=?",
+
+[req.params.id]
+
+);
+
+
+
+res.json({
+
+success:true,
+
+message:`${rows[0].name} deactivated.`
+
+});
+
+
+
+}catch(e){
+
+res.status(500).json({
+success:false,
+message:'Server error.'
+});
+
+}
+
+
+};
+
+
+
+
+
+// DELETE NOW
 const deleteStudentNow = async(req,res)=>{
+
 
 const archive = req.body?.archive === true;
 
@@ -151,20 +215,6 @@ const conn = await pool.getConnection();
 try{
 
 
-const [rows]=await conn.query(
-"SELECT id,name FROM users WHERE id=? AND role IN ('student','external')",
-[req.params.id]
-);
-
-if(!rows.length){
-
-return res.status(404).json({
-success:false,
-message:'Student not found.'
-});
-
-}
-
 await conn.beginTransaction();
 
 
@@ -173,16 +223,25 @@ if(archive){
 
 
 await conn.query(
+
 `
 INSERT IGNORE INTO archived_registrations
+
 (
-id,user_id,mess_type,registration_date,
-expiry_date,status,
-user_name,user_email,
-archive_year,archived_by
+id,
+user_id,
+mess_type,
+registration_date,
+expiry_date,
+status,
+user_name,
+user_email,
+archive_year,
+archived_by
 )
 
 SELECT
+
 r.id,
 r.user_id,
 r.mess_type,
@@ -196,30 +255,42 @@ YEAR(NOW()),
 
 FROM registrations r
 
-JOIN users u
-ON r.user_id=u.id
+JOIN users u ON r.user_id=u.id
 
 WHERE r.user_id=?
+
 `,
+
 [
 req.user.id,
 req.params.id
 ]
+
 );
 
 
 
 await conn.query(
+
 `
 INSERT IGNORE INTO archived_feedback
+
 (
-id,user_id,rating,category,
-comments,created_at,
-user_name,user_email,
-archive_year,archived_by
+id,
+user_id,
+rating,
+category,
+comments,
+created_at,
+user_name,
+user_email,
+archive_year,
+archived_by
 )
 
+
 SELECT
+
 f.id,
 f.user_id,
 f.rating,
@@ -233,31 +304,43 @@ YEAR(NOW()),
 
 FROM feedback f
 
-JOIN users u
-ON f.user_id=u.id
+JOIN users u ON f.user_id=u.id
 
 WHERE f.user_id=?
+
 `,
+
 [
 req.user.id,
 req.params.id
 ]
+
 );
+
+
 }
 
+
+
 await conn.query(
+
 "DELETE FROM users WHERE id=?",
+
 [req.params.id]
+
 );
+
+
 
 await conn.commit();
 
-return res.json({
+
+
+res.json({
 
 success:true,
 
-message:
-`${rows[0].name} permanently deleted.${archive?' Data archived.':''}`
+message:'Student permanently deleted.'
 
 });
 
@@ -265,14 +348,12 @@ message:
 
 }catch(e){
 
-try{
 await conn.rollback();
-}catch(_){}
+
+console.error(e);
 
 
-console.error('deleteStudentNow error:',e);
-
-return res.status(500).json({
+res.status(500).json({
 
 success:false,
 
@@ -287,219 +368,227 @@ conn.release();
 
 }
 
+
 };
 
+
+
+
+
+// SELF DEACTIVATE
+const deactivateSelf = async(req,res)=>{
+
+
+try{
+
+
+await pool.query(
+
+`
+UPDATE users
+
+SET is_active=0,
+deactivated_at=NOW(),
+pending_deletion=0
+
+WHERE id=?
+
+`,
+
+[req.user.id]
+
+);
+
+
+
+res.json({
+
+success:true,
+
+message:'Account deactivated.'
+
+});
+
+
+
+}catch(e){
+
+res.status(500).json({
+
+success:false,
+
+message:'Server error.'
+
+});
+
+}
+
+
+};
+
+
+
+
+
+
+// SELF DELETE
 const deleteSelf = async(req,res)=>{
+
 
 const {email}=req.body;
 
 
-if(!email)
+if(!email){
+
 return res.status(400).json({
+
 success:false,
+
 message:'Email confirmation required.'
+
 });
-if(email.toLowerCase()!==req.user.email.toLowerCase()){
+
+}
+
+
+
+if(email.toLowerCase() !== req.user.email.toLowerCase()){
+
 return res.status(400).json({
+
 success:false,
+
 message:'Email does not match.'
+
 });
+
 }
-const conn=await pool.getConnection();
+
+
+
 try{
-await conn.beginTransaction();
-await conn.query(
+
+
+await pool.query(
+
 "DELETE FROM users WHERE id=?",
+
 [req.user.id]
+
 );
-await conn.commit();
-return res.json({
+
+
+
+res.json({
+
 success:true,
+
 message:'Account deleted.'
+
 });
+
+
 }catch(e){
-await conn.rollback();
-return res.status(500).json({
+
+
+res.status(500).json({
+
 success:false,
+
 message:'Server error.'
+
 });
-}finally{
-conn.release();
+
+
 }
+
+
 };
-const resetBatch = async (req, res) => {
-  const { archive } = req.body;
-
-  const conn = await pool.getConnection();
-
-  try {
-    await conn.beginTransaction();
-
-    if (archive) {
-
-      await conn.query(
-        `INSERT IGNORE INTO archived_registrations (
-          id,
-          user_id,
-          mess_type,
-          registration_date,
-          expiry_date,
-          status,
-          payment_proof,
-          approval_status,
-          approved_by,
-          approved_at,
-          created_at,
-          user_name,
-          user_email,
-          user_phone,
-          user_trainee_id,
-          user_trainee_type,
-          user_hostel_block,
-          user_member_type,
-          user_role,
-          archive_year,
-          archived_by
-        )
-        SELECT
-          r.id,
-          r.user_id,
-          r.mess_type,
-          r.registration_date,
-          r.expiry_date,
-          r.status,
-          r.payment_proof,
-          r.approval_status,
-          r.approved_by,
-          r.approved_at,
-          r.created_at,
-          u.name,
-          u.email,
-          u.phone,
-          u.trainee_id,
-          u.trainee_type,
-          u.hostel_block,
-          u.member_type,
-          u.role,
-          YEAR(NOW()),
-          ?
-        FROM registrations r
-        JOIN users u 
-        ON r.user_id = u.id`,
-        [req.user.id]
-      );
 
 
-      await conn.query(
-        `INSERT IGNORE INTO archived_feedback (
-          id,
-          user_id,
-          rating,
-          category,
-          comments,
-          created_at,
-          user_name,
-          user_email,
-          archive_year,
-          archived_by
-        )
-        SELECT
-          f.id,
-          f.user_id,
-          f.rating,
-          f.category,
-          f.comments,
-          f.created_at,
-          u.name,
-          u.email,
-          YEAR(NOW()),
-          ?
-        FROM feedback f
-        JOIN users u 
-        ON f.user_id=u.id`,
-        [req.user.id]
-      );
-
-    }
 
 
-    await conn.query(
-      `DELETE FROM users 
-       WHERE role IN ('student','external')`
-    );
 
 
-    await conn.commit();
+
+// RESET BATCH
+const resetBatch = async(req,res)=>{
 
 
-    return res.json({
-      success:true,
-      message: archive
-        ? 'Batch reset completed and data archived.'
-        : 'Batch reset completed.'
-    });
+const {archive}=req.body;
 
 
-  } catch(err){
-
-    await conn.rollback();
-
-    console.error('resetBatch error:',err);
+try{
 
 
-    return res.status(500).json({
-      success:false,
-      message:'Server error.'
-    });
+if(archive){
 
 
-  } finally {
+console.log("Archive enabled");
 
-    conn.release();
+}
 
-  }
+
+
+await pool.query(
+
+"DELETE FROM users WHERE role IN ('student','external')"
+
+);
+
+
+
+res.json({
+
+success:true,
+
+message:'Batch reset completed.'
+
+});
+
+
+}catch(e){
+
+
+res.status(500).json({
+
+success:false,
+
+message:'Server error.'
+
+});
+
+
+}
+
+
 };
+
+
+
+
 
 
 
 module.exports = {
 
-  getAllStudents,
-  addStudent,
-  deleteStudent,
-  deactivateSelf,
-  deleteSelf,
-
-  deleteStudentNow,
-
-  resetBatch,
-
-  deleteExpiredUsers,
-  getDashboardStats,
-  getQuickAnalytics,
-
-  exportReport,
-  exportPDF,
-
-  createAdmin,
-  getAdminList,
-
-  getAnalytics
-
-};
-
-
-
-module.exports = {
 
 getAllStudents,
+
 addStudent,
+
 deleteStudent,
+
 deleteStudentNow,
+
+deactivateSelf,
+
 deleteSelf,
 
-// keep these only if they exist above
 resetBatch,
+
+
+// keep existing functions if present
 deleteExpiredUsers,
 getDashboardStats,
 getQuickAnalytics,
@@ -508,5 +597,6 @@ exportPDF,
 createAdmin,
 getAdminList,
 getAnalytics
+
 
 };
