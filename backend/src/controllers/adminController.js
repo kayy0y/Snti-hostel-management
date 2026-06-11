@@ -140,10 +140,6 @@ message:'Server error.'
 
 };
 
-
-
-
-
 // FIXED FUNCTION
 const deleteStudentNow = async(req,res)=>{
 
@@ -160,8 +156,6 @@ const [rows]=await conn.query(
 [req.params.id]
 );
 
-
-
 if(!rows.length){
 
 return res.status(404).json({
@@ -170,8 +164,6 @@ message:'Student not found.'
 });
 
 }
-
-
 
 await conn.beginTransaction();
 
@@ -251,23 +243,14 @@ req.user.id,
 req.params.id
 ]
 );
-
-
-
 }
-
-
 
 await conn.query(
 "DELETE FROM users WHERE id=?",
 [req.params.id]
 );
 
-
-
 await conn.commit();
-
-
 
 return res.json({
 
@@ -282,16 +265,12 @@ message:
 
 }catch(e){
 
-
 try{
 await conn.rollback();
 }catch(_){}
 
 
-
 console.error('deleteStudentNow error:',e);
-
-
 
 return res.status(500).json({
 
@@ -309,12 +288,6 @@ conn.release();
 }
 
 };
-
-
-
-
-
-
 
 const deleteSelf = async(req,res)=>{
 
