@@ -1,24 +1,34 @@
 import axios from 'axios';
 
-const API = axios.create({ baseURL: '/api' });
+const API = axios.create({
+  baseURL:
+    process.env.REACT_APP_BASE_URL ||
+    'https://snti-hostel-backend.onrender.com/api'
+});
 
 API.interceptors.request.use(cfg => {
-  const t = localStorage.getItem('token');
-  if (t) cfg.headers.Authorization = `Bearer ${t}`;
+  const token = localStorage.getItem('token');
+
+  if (token) {
+    cfg.headers.Authorization = `Bearer ${token}`;
+  }
+
   return cfg;
 });
 
 API.interceptors.response.use(
-  r => r,
-  err => {
-    if (err.response?.status === 401) {
+  response => response,
+  error => {
+    if (error.response?.status === 401) {
       localStorage.clear();
       window.location.href = '/login';
     }
-    return Promise.reject(err);
+
+    return Promise.reject(error);
   }
 );
 
+export default API;
 // Auth
 export const loginUser = d => API.post('/auth/login', d);
 export const registerUser = d => API.post('/auth/register', d);
