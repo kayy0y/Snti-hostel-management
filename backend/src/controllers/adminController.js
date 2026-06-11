@@ -404,21 +404,12 @@ const resetBatch = async (req, res) => {
   }
 
 };
-
-
-
 module.exports = {
-
   getAllStudents,
-
   addStudent,
-
   deleteStudent,
-
   deleteStudentNow,
-
+  deactivateSelf,
   deleteSelf,
-
   resetBatch
-
 };
