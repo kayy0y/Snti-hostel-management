@@ -14,7 +14,7 @@ A full-stack Hostel Mess Management System developed for SNTI Hostel to streamli
 * Submit Feedback
 * Profile Management
 
- 2- dmin / Warden Portal
+ 2- Admin / Warden Portal
 
 * Secure Admin Login
 * Dashboard Analytics
