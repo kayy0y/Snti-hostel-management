@@ -3,8 +3,7 @@ const router  = express.Router();
 const { body } = require('express-validator');
 
 const { protect, adminOnly, studentOnly } = require('../middleware/auth');
-
-const authRoutes = require('./adminRoutes');
+const adminRoutes = require('./adminRoutes');
 
 const auth    = require('../controllers/authController');
 const menu    = require('../controllers/menuController');
@@ -207,6 +206,11 @@ router.put('/payments/:payment_id/verify',
 // ── ADMIN ROUTES IMPORTED HERE ─────────────────────────────────────────
 // this connects /api/admin/*
 
-router.use('/admin', authRoutes);
-
+router.use('/admin', adminRoutes);
+router.get(
+'/admin/analytics',
+protect,
+adminOnly,
+admin.getAnalytics
+);
 module.exports = router;
