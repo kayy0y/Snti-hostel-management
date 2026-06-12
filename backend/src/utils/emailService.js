@@ -1,7 +1,7 @@
 const nodemailer = require('nodemailer');
 const { pool } = require('../config/db');
 
-const transporter = nodemailer.createTransport({
+const t = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
@@ -9,7 +9,7 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-const emailConfigured = () =>
+const ok = () =>
   !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
 
 const wrap = (title, body) => `
@@ -22,230 +22,239 @@ body{
   font-family:'Segoe UI',Arial,sans-serif;
   background:#f4f6fb;
   margin:0;
-  padding:20px;
+  padding:20px
 }
-.container{
+.c{
   max-width:540px;
   margin:0 auto;
   background:#fff;
   border-radius:12px;
   overflow:hidden;
-  box-shadow:0 2px 12px rgba(0,0,0,.08);
+  box-shadow:0 2px 12px rgba(0,0,0,.08)
 }
-.header{
+.h{
   background:#1e40af;
   color:#fff;
-  padding:24px 28px;
+  padding:24px 28px
 }
-.header h1{
+.h h1{
   margin:0;
   font-size:18px;
+  font-weight:700
 }
-.header p{
+.h p{
   margin:4px 0 0;
   font-size:12px;
-  opacity:.85;
+  opacity:.8
 }
-.body{
+.b{
   padding:24px 28px;
   color:#374151;
-  line-height:1.6;
+  line-height:1.6
 }
-.body h2{
+.b h2{
+  font-size:16px;
   color:#1e40af;
-  margin-top:0;
-}
-.box{
-  background:#f0f4ff;
-  padding:12px 16px;
-  border-radius:8px;
-  margin:14px 0;
+  margin-top:0
 }
 .row{
   display:flex;
   justify-content:space-between;
   padding:5px 0;
-  border-bottom:1px solid #e5e7eb;
+  border-bottom:1px solid #f0f4ff
 }
 .row:last-child{
-  border-bottom:none;
+  border-bottom:none
 }
-.label{
+.lbl{
   color:#6b7280;
-  font-weight:500;
+  font-weight:500
 }
-.value{
-  color:#111827;
-  font-weight:600;
+.val{
+  color:#111;
+  font-weight:600
 }
-.footer{
+.box{
+  background:#f0f4ff;
+  border-radius:8px;
+  padding:12px 16px;
+  margin:14px 0
+}
+.f{
   background:#f9fafb;
   padding:14px 28px;
-  text-align:center;
   font-size:11px;
   color:#9ca3af;
+  text-align:center
 }
 </style>
 </head>
 <body>
-<div class="container">
-  <div class="header">
+<div class="c">
+  <div class="h">
     <h1>SNTI Hostel Mess</h1>
     <p>Mess Registration & Smart Menu System</p>
   </div>
 
-  <div class="body">
+  <div class="b">
     <h2>${title}</h2>
     ${body}
   </div>
 
-  <div class="footer">
-    Automated message from SNTI Hostel Mess. Please do not reply.
+  <div class="f">
+    Automated message from SNTI Hostel Mess. Do not reply.
   </div>
 </div>
 </body>
 </html>
 `;
 
-const logEmail = async (userId, type, status) => {
+const log = async (uid, type, status) => {
   try {
     await pool.query(
       'INSERT INTO email_logs (user_id,email_type,status) VALUES (?,?,?)',
-      [userId, type, status]
+      [uid, type, status]
     );
-  } catch (err) {
-    console.error('Email log error:', err.message);
-  }
+  } catch {}
 };
 
-const sendEmail = async (to, subject, html, userId, type) => {
-  try {
-    if (!emailConfigured()) {
-      console.warn('Email credentials not configured.');
-      return false;
-    }
+const send = async (to, subject, html, uid, type) => {
+  if (!ok()) return;
 
-    await transporter.sendMail({
+  try {
+    await t.sendMail({
       from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
       to,
       subject,
       html
     });
 
-    await logEmail(userId, type, 'sent');
-    return true;
-  } catch (err) {
-    console.error(`Email send failed (${type}):`, err.message);
-
-    try {
-      await logEmail(userId, type, 'failed');
-    } catch {}
-
-    return false;
+    await log(uid, type, 'sent');
+  } catch (e) {
+    console.error(`[Email] ${type}:`, e.message);
+    await log(uid, type, 'failed');
   }
 };
 
-const sendRegistrationSuccess = async (user, registration) => {
-  return sendEmail(
+const sendRegistrationSuccess = (user, reg) =>
+  send(
     user.email,
     'Mess Registration Confirmed - SNTI',
     wrap(
       'Registration Confirmed',
       `
-      <p>Hello <strong>${user.name}</strong>, your registration has been confirmed.</p>
+      <p>Hello <strong>${user.name}</strong>, your mess registration is confirmed.</p>
 
       <div class="box">
         <div class="row">
-          <span class="label">Mess Type</span>
-          <span class="value">${registration.mess_type}</span>
+          <span class="lbl">Mess Type</span>
+          <span class="val">${reg.mess_type}</span>
         </div>
 
         <div class="row">
-          <span class="label">Registration Date</span>
-          <span class="value">${registration.registration_date}</span>
+          <span class="lbl">Valid From</span>
+          <span class="val">${reg.registration_date}</span>
         </div>
 
         <div class="row">
-          <span class="label">Expiry Date</span>
-          <span class="value">${registration.expiry_date}</span>
+          <span class="lbl">Expires On</span>
+          <span class="val">${reg.expiry_date}</span>
         </div>
       </div>
       `
     ),
     user.id,
-    'registration_success'
+    'reg_success'
   );
-};
 
-const sendApprovalNotification = async (user, approved) => {
-  return sendEmail(
+const sendApprovalNotification = (user, approved) =>
+  send(
     user.email,
-    approved ? 'Registration Approved' : 'Registration Rejected',
+    approved
+      ? 'Mess Access Approved'
+      : 'Registration Rejected',
     wrap(
-      approved ? 'Registration Approved' : 'Registration Rejected',
+      approved ? 'Access Approved' : 'Rejected',
       approved
-        ? `<p>Hello <strong>${user.name}</strong>, your registration has been approved.</p>`
-        : `<p>Hello <strong>${user.name}</strong>, your registration has been rejected. Please contact the administrator.</p>`
+        ? `
+          <p>Hello <strong>${user.name}</strong>,
+          your mess-only membership has been
+          <strong style="color:#15803d">approved</strong>.
+          Access is valid for 30 days.</p>
+        `
+        : `
+          <p>Hello <strong>${user.name}</strong>,
+          your registration was
+          <strong style="color:#dc2626">rejected</strong>.
+          Contact admin for details.</p>
+        `
     ),
     user.id,
     approved ? 'approval' : 'rejection'
   );
-};
 
-const sendExpiryWarning = async (user, expiryDate) => {
-  return sendEmail(
+const sendExpiryWarning = (user, expiry) =>
+  send(
     user.email,
     'Mess Registration Expiring Soon',
     wrap(
-      'Expiry Warning',
+      'Expiring Soon',
       `
-      <p>Hello <strong>${user.name}</strong>,</p>
+      <p>Hello <strong>${user.name}</strong>,
+      your registration expires on
+      <strong style="color:#dc2626">${expiry}</strong>
+      (3 days from now).</p>
 
-      <p>Your registration will expire on:</p>
-
-      <div class="box">
-        <strong>${expiryDate}</strong>
-      </div>
-
-      <p>Please renew before expiry.</p>
+      <p>Please contact the mess office to renew.</p>
       `
     ),
     user.id,
     'expiry_warning'
   );
-};
 
-const sendDailyMenuReminder = async (user, menu) => {
+const sendDailyMenuReminder = (user, menu) => {
   const today = new Date().toLocaleDateString('en-IN', {
     weekday: 'long',
     day: 'numeric',
-    month: 'long',
-    year: 'numeric'
+    month: 'long'
   });
 
-  return sendEmail(
+  return send(
     user.email,
     `Today's Menu - ${today}`,
     wrap(
       "Today's Menu",
       `
-      <p>Hello <strong>${user.name}</strong>,</p>
+      <p>Hello <strong>${user.name}</strong>,
+      here is your menu for <strong>${today}</strong>:</p>
 
       <div class="box">
         <div class="row">
-          <span class="label">Breakfast</span>
-          <span class="value">${menu.breakfast || 'Not Selected'}</span>
+          <span class="lbl">Breakfast</span>
+          <span class="val">${menu.breakfast || 'Not selected'}</span>
         </div>
 
-        <div class="row">
-          <span class="label">Lunch</span>
-          <span class="value">${menu.lunch || 'Not Selected'}</span>
-        </div>
+        ${
+          menu.lunch
+            ? `
+            <div class="row">
+              <span class="lbl">Lunch</span>
+              <span class="val">${menu.lunch}</span>
+            </div>
+          `
+            : ''
+        }
 
-        <div class="row">
-          <span class="label">Dinner</span>
-          <span class="value">${menu.dinner || 'Not Selected'}</span>
-        </div>
+        ${
+          menu.dinner
+            ? `
+            <div class="row">
+              <span class="lbl">Dinner</span>
+              <span class="val">${menu.dinner}</span>
+            </div>
+          `
+            : ''
+        }
       </div>
       `
     ),
@@ -254,35 +263,110 @@ const sendDailyMenuReminder = async (user, menu) => {
   );
 };
 
-const sendDeactivationEmail = async (user) => {
-  const deletionDate = new Date(
-    Date.now() + 48 * 60 * 60 * 1000
-  ).toLocaleString('en-IN');
-
-  return sendEmail(
+const sendPaymentConfirmation = (
+  user,
+  payment,
+  newExpiry
+) =>
+  send(
     user.email,
-    'Account Deactivated - SNTI Hostel Mess',
+    'Payment Received — SNTI Hostel Mess',
+    wrap(
+      'Payment Confirmed',
+      `
+      <p>Hello <strong>${user.name}</strong>,</p>
+
+      <p>Your payment has been
+      <strong style="color:#15803d">verified</strong>
+      by the admin.</p>
+
+      <div class="box">
+
+        <div class="row">
+          <span class="lbl">Amount Paid</span>
+          <span class="val">₹${payment.amount}</span>
+        </div>
+
+        <div class="row">
+          <span class="lbl">Payment Date</span>
+          <span class="val">${payment.payment_date}</span>
+        </div>
+
+        <div class="row">
+          <span class="lbl">Method</span>
+          <span class="val">${payment.payment_method}</span>
+        </div>
+
+        ${
+          payment.transaction_ref
+            ? `
+            <div class="row">
+              <span class="lbl">Transaction Ref</span>
+              <span class="val">${payment.transaction_ref}</span>
+            </div>
+          `
+            : ''
+        }
+
+        <div class="row">
+          <span class="lbl">New Expiry Date</span>
+          <span class="val" style="color:#15803d">
+            <strong>${newExpiry}</strong>
+          </span>
+        </div>
+
+      </div>
+      `
+    ),
+    user.id,
+    'payment_confirmation'
+  );
+
+const sendDeactivationEmail = (user) => {
+  const deletionTime = new Date(
+    Date.now() + 48 * 60 * 60 * 1000
+  ).toLocaleString('en-IN', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
+
+  return send(
+    user.email,
+    'Your SNTI Hostel Mess Account Has Been Deactivated',
     wrap(
       'Account Deactivated',
       `
       <p>Hello <strong>${user.name}</strong>,</p>
 
-      <p>Your account has been deactivated.</p>
+      <p>Your mess account has been
+      <strong style="color:#dc2626">deactivated</strong>.</p>
 
       <div class="box">
+
         <div class="row">
-          <span class="label">Email</span>
-          <span class="value">${user.email}</span>
+          <span class="lbl">Account</span>
+          <span class="val">${user.email}</span>
         </div>
 
         <div class="row">
-          <span class="label">Permanent Deletion</span>
-          <span class="value">${deletionDate}</span>
+          <span class="lbl">Deactivated On</span>
+          <span class="val">${new Date().toLocaleString('en-IN')}</span>
         </div>
+
+        <div class="row">
+          <span class="lbl">Permanent Deletion</span>
+          <span class="val" style="color:#dc2626">
+            ${deletionTime}
+          </span>
+        </div>
+
       </div>
 
-      <p>
-        If this action was not expected, contact the administrator before the deletion deadline.
+      <p style="font-size:13px;color:#6b7280">
+        If this was done by mistake, please contact the mess admin
+        immediately to restore your account before the deletion deadline.
+        After <strong>${deletionTime}</strong>, your account may be
+        permanently removed.
       </p>
       `
     ),
@@ -296,5 +380,6 @@ module.exports = {
   sendApprovalNotification,
   sendExpiryWarning,
   sendDailyMenuReminder,
+  sendPaymentConfirmation,
   sendDeactivationEmail
 };
