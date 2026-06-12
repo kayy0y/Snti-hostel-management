@@ -3,11 +3,8 @@ const { sendPaymentConfirmation } = require('../utils/emailService');
 
 // ─── GET /api/payments/:user_id ───────────────────────────────────────────
 const getPaymentHistory = async (req, res) => {
-
   const { user_id } = req.params;
-
   try {
-
     const [userRows] = await pool.query(
       `
       SELECT 
@@ -22,16 +19,12 @@ const getPaymentHistory = async (req, res) => {
       `,
       [user_id]
     );
-
-
     if (!userRows.length) {
       return res.status(404).json({
         success:false,
         message:'Member not found.'
       });
     }
-
-
     const [payments] = await pool.query(
       `
       SELECT
@@ -58,63 +51,33 @@ const getPaymentHistory = async (req, res) => {
       ON p.registration_id = r.id
 
       WHERE p.user_id = ?
-
       ORDER BY 
       p.created_at DESC
       `,
       [user_id]
     );
-
-
     const totalPaid = payments
       .filter(p => p.status === 'verified')
       .reduce(
         (sum,p)=> sum + Number(p.amount),
         0
       );
-
-
     const totalPayments = payments.filter(
       p=>p.status==='verified'
     ).length;
-
-
     const pending = payments.filter(
       p=>p.status==='pending'
     ).length;
-
-
     return res.json({
-
       success:true,
-
       data:{
-        member:userRows[0],
-
-        payments,
-
-        stats:{
-          totalPaid,
-          totalPayments,
-          pending
-        }
-
+        member:userRows[0], payments,stats:{totalPaid,totalPayments,pending}
       }
-
     });
-
-
   } catch(err){
-
     console.error("Payment history error:",err);
-
-    return res.status(500).json({
-      success:false,
-      message:err.message
-    });
-
+    return res.status(500).json({success:false,message:err.message });
   }
-
 };
 // ─── POST /api/payments/record ────────────────────────────────────────────
 const recordPayment = async (req, res) => {
