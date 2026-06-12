@@ -40,8 +40,7 @@ protect, adminOnly, admin.addStudent
 );
 
 router.delete(
-'/students/:id',
-protect, adminOnly, admin.deleteStudent
+'/students/:id/now',
+protect, adminOnly, admin.deleteStudentNow
 );
-
 module.exports = router;

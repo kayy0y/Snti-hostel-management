@@ -3,36 +3,119 @@ const { sendPaymentConfirmation } = require('../utils/emailService');
 
 // ─── GET /api/payments/:user_id ───────────────────────────────────────────
 const getPaymentHistory = async (req, res) => {
+
   const { user_id } = req.params;
+
   try {
+
     const [userRows] = await pool.query(
-      "SELECT id, name, email, role FROM users WHERE id = ? AND role = 'external'",
+      `
+      SELECT 
+        id,
+        name,
+        email,
+        phone,
+        role,
+        member_type
+      FROM users
+      WHERE id = ?
+      `,
       [user_id]
     );
-    if (!userRows.length)
-      return res.status(404).json({ success: false, message: 'External member not found.' });
+
+
+    if (!userRows.length) {
+      return res.status(404).json({
+        success:false,
+        message:'Member not found.'
+      });
+    }
+
 
     const [payments] = await pool.query(
-      `SELECT p.*, u.name AS verified_by_name, r.expiry_date AS current_expiry
-       FROM payment_records p
-       LEFT JOIN users u ON p.verified_by = u.id
-       LEFT JOIN registrations r ON p.registration_id = r.id
-       WHERE p.user_id = ?
-       ORDER BY p.payment_date DESC, p.created_at DESC`,
+      `
+      SELECT
+        p.id,
+        p.amount,
+        p.payment_method,
+        p.transaction_ref,
+        p.status,
+        p.payment_date,
+        p.period_start,
+        p.period_end,
+        p.notes,
+
+        u.name AS verified_by_name,
+
+        r.expiry_date AS current_expiry
+
+      FROM payment_records p
+
+      LEFT JOIN users u
+      ON p.verified_by = u.id
+
+      LEFT JOIN registrations r
+      ON p.registration_id = r.id
+
+      WHERE p.user_id = ?
+
+      ORDER BY 
+      p.created_at DESC
+      `,
       [user_id]
     );
 
-    const totalPaid     = payments.filter(p => p.status === 'verified').reduce((s, p) => s + Number(p.amount), 0);
-    const totalPayments = payments.filter(p => p.status === 'verified').length;
-    const pending       = payments.filter(p => p.status === 'pending').length;
 
-    return res.json({ success: true, data: payments, member: userRows[0], stats: { totalPaid, totalPayments, pending } });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ success: false, message: 'Server error.' });
+    const totalPaid = payments
+      .filter(p => p.status === 'verified')
+      .reduce(
+        (sum,p)=> sum + Number(p.amount),
+        0
+      );
+
+
+    const totalPayments = payments.filter(
+      p=>p.status==='verified'
+    ).length;
+
+
+    const pending = payments.filter(
+      p=>p.status==='pending'
+    ).length;
+
+
+    return res.json({
+
+      success:true,
+
+      data:{
+        member:userRows[0],
+
+        payments,
+
+        stats:{
+          totalPaid,
+          totalPayments,
+          pending
+        }
+
+      }
+
+    });
+
+
+  } catch(err){
+
+    console.error("Payment history error:",err);
+
+    return res.status(500).json({
+      success:false,
+      message:err.message
+    });
+
   }
-};
 
+};
 // ─── POST /api/payments/record ────────────────────────────────────────────
 const recordPayment = async (req, res) => {
   const { user_id, amount, payment_method, transaction_ref, notes, payment_date } = req.body;
