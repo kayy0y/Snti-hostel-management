@@ -494,6 +494,60 @@ const exportPDF = async (req,res)=>{
     });
   }
 };
+const getAnalytics = async (req,res)=>{
+  try{
+
+    const [[students]] = await pool.query(
+      "SELECT COUNT(*) total FROM users WHERE role IN ('student','external') AND is_active=1"
+    );
+
+
+    const [[pending]] = await pool.query(
+      "SELECT COUNT(*) total FROM registrations WHERE approval_status='pending'"
+    );
+
+
+    const [[selected]] = await pool.query(
+      "SELECT COUNT(DISTINCT user_id) total FROM menu_selections WHERE week_start = CURDATE()"
+    );
+
+
+    res.json({
+      success:true,
+      data:{
+        week_start:new Date().toISOString().split('T')[0],
+
+        menu_coverage:{
+          total_students: students.total,
+          selected_this_week:selected.total
+        },
+
+        pending_approvals: pending.total,
+
+        menu_popularity:{
+          breakfast:{top:[],low:[]},
+          lunch:{top:[],low:[]},
+          dinner:{top:[],low:[]}
+        },
+
+        registration_trend:[],
+        peak_day:[],
+        member_breakdown:[]
+      }
+    });
+
+
+  }catch(e){
+
+    console.error(e);
+
+    res.status(500).json({
+      success:false,
+      message:'Server error.'
+    });
+
+  }
+};
 module.exports = {
   getAllStudents,
   addStudent,
@@ -508,5 +562,6 @@ module.exports = {
   getAdminList,
   deleteExpiredUsers,
   exportExcel,
-  exportPDF
+  exportPDF,
+  getAnalytics
 };
