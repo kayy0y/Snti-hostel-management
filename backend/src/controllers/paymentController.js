@@ -68,12 +68,18 @@ const getPaymentHistory = async (req, res) => {
     const pending = payments.filter(
       p=>p.status==='pending'
     ).length;
-    return res.json({
-      success:true,
-      data:{
-        member:userRows[0], payments,stats:{totalPaid,totalPayments,pending}
-      }
-    });
+  return res.json({
+  success:true,
+  data:{
+    member:userRows[0],
+    payments,
+    stats:{
+      totalPaid,
+      totalPayments,
+      pending
+    }
+  }
+});
   } catch(err){
     console.error("Payment history error:",err);
     return res.status(500).json({success:false,message:err.message });

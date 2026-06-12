@@ -64,7 +64,7 @@ const PaymentHistoryPanel = ({ userId, onUpdated }) => {
   if (loading) return <div style={{ padding: '1rem', textAlign: 'center', color: '#9ca3af', fontSize: '.85rem' }}>Loading payment history…</div>;
   if (!data) return null;
 
-  const { data: payments, stats } = data;
+ const { data: payments = [], stats = {} } = data;
 
   return (
     <div style={{ padding: '1rem 1.25rem', background: '#fafbff', borderTop: '1px solid #e5e7eb' }}>
@@ -73,16 +73,16 @@ const PaymentHistoryPanel = ({ userId, onUpdated }) => {
       <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
         <div style={{ background: '#dcfce7', borderRadius: 8, padding: '.5rem 1rem' }}>
           <div style={{ fontSize: '.7rem', color: '#15803d', fontWeight: 700, textTransform: 'uppercase' }}>Total Paid</div>
-          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#15803d' }}>₹{stats.totalPaid}</div>
+          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#15803d' }}>₹{stats?.totalPaid || 0}</div>
         </div>
         <div style={{ background: '#dbeafe', borderRadius: 8, padding: '.5rem 1rem' }}>
           <div style={{ fontSize: '.7rem', color: '#1d4ed8', fontWeight: 700, textTransform: 'uppercase' }}>Payments Made</div>
-          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1d4ed8' }}>{stats.totalPayments}</div>
+          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1d4ed8' }}>{stats?.totalPayments || 0}</div>
         </div>
-        {stats.pending > 0 && (
+        {(stats?.pending || 0) > 0 && (
           <div style={{ background: '#fef9c3', borderRadius: 8, padding: '.5rem 1rem' }}>
             <div style={{ fontSize: '.7rem', color: '#a16207', fontWeight: 700, textTransform: 'uppercase' }}>Pending Review</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#a16207' }}>{stats.pending}</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#a16207' }}>{stats?.pending || 0}</div>
           </div>
         )}
       </div>

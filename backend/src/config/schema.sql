@@ -281,3 +281,4 @@ CREATE TABLE IF NOT EXISTS payment_records (
   INDEX idx_payment_status (status),
   INDEX idx_payment_date (payment_date)
 );
+

@@ -240,10 +240,17 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       const res = await registerUser(payload);
-      login(res.data.token, res.data.user);
-      toast.success(payload.member_type === 'Mess Only'
-        ? 'Account created! Waiting for admin approval.'
-        : 'Account created! Welcome to SNTI Mess.');
+
+if (res.data.token) {
+  login(res.data.token, res.data.user);
+  navigate('/dashboard', { replace:true });
+}
+
+toast.success(
+  payload.member_type === 'Mess Only'
+  ? 'Account created! Waiting for admin approval.'
+  : 'Account created! Welcome to SNTI Mess.'
+);
       navigate('/dashboard', { replace: true });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Registration failed. Please try again.');
