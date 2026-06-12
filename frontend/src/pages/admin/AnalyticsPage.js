@@ -3,62 +3,99 @@ import Navbar from '../../components/shared/Navbar';
 import { getAnalytics } from '../../utils/api';
 import toast from 'react-hot-toast';
 
-const BarChart = ({ data }) => {
 
-  if (!data || !data.length) {
+const BarChart = ({ data = [], color = '#1e40af' }) => {
+
+  const safeData = Array.isArray(data)
+    ? data.filter(
+        item =>
+          item &&
+          item.item &&
+          item.count !== undefined &&
+          item.count !== null
+      )
+    : [];
+
+
+  if (!safeData.length) {
     return (
-      <div style={{color:'#9ca3af',fontSize:'.8rem'}}>
+      <div style={{color:'#9ca3af',fontSize:'.85rem'}}>
         No data available.
       </div>
     );
   }
-  const max = Math.max(...data.map(x=>x.count || 0));
+
+
+  const max = Math.max(
+    ...safeData.map(x => Number(x.count) || 0),
+    1
+  );
+
+
   return (
     <div style={{
       display:'flex',
       flexDirection:'column',
-      gap:'.5rem'
+      gap:'12px'
     }}>
 
-    {data.map((d,i)=>(
 
-      <div
-      key={i}
-      style={{
-        display:'flex',
-        alignItems:'center',
-        gap:'.7rem'
-      }}
-      >
-      <div style={{
-        width:120,
-        fontSize:'.8rem'
-      }}>
-        {d.item || d.name || d.day || 'Unknown'}
-      </div>
-      <div style={{
-        flex:1,
-        height:15,
-        background:'#eee',
-        borderRadius:20
-      }}>
+    {
+      safeData.map((x,index)=>(
 
-      <div
-      style={{
-        height:'100%',
-        width:`${max ? (d.count/max)*100 : 0}%`,
-        background:'#1e40af',
-        borderRadius:20
-      }}
-      />
+        <div
+        key={index}
+        style={{
+          display:'flex',
+          alignItems:'center',
+          gap:'10px'
+        }}
+        >
 
-      </div>
-      <b>
-      {d.count}
-      </b>
-      </div>
+          <div
+          style={{
+            width:'120px',
+            fontSize:'13px',
+            textAlign:'right'
+          }}
+          >
+            {x.item}
+          </div>
 
-    ))}
+
+          <div
+          style={{
+            flex:1,
+            height:'16px',
+            background:'#eee',
+            borderRadius:'20px'
+          }}
+          >
+
+            <div
+            style={{
+              width:`${(Number(x.count)/max)*100}%`,
+              height:'100%',
+              background:color,
+              borderRadius:'20px',
+              minWidth:'5px'
+            }}
+            />
+
+          </div>
+
+
+          <b>
+            {x.count}
+          </b>
+
+
+        </div>
+
+
+      ))
+    }
+
 
     </div>
   );
@@ -66,54 +103,113 @@ const BarChart = ({ data }) => {
 
 export default function AnalyticsPage(){
 
-const [data,setData]=useState(null);
-const [loading,setLoading]=useState(true);
-
+const [data,setData] = useState(null);
+const [loading,setLoading] = useState(true);
 useEffect(()=>{
 getAnalytics()
 .then(res=>{
-console.log("Analytics response:",res.data);
+console.log(
+"Analytics:",
+res.data
+);
 setData(
-res.data.data || {}
+res.data?.data || {}
 );
 })
 .catch(err=>{
 console.error(err);
-toast.error("Failed loading analytics");
+toast.error(
+"Failed loading analytics"
+);
 })
-.finally(()=>setLoading(false));
+.finally(()=>{
+setLoading(false);
+});
 },[]);
-if(loading)
+if(loading){
 return (
 <div className="page">
 <Navbar/>
 <div className="loading">
-Loading...
+Loading analytics...
 </div>
 </div>
 );
-if(!data)
+}
+if(!data){
 return (
 <div className="page">
 <Navbar/>
 <div className="loading">
-No analytics found
+No analytics found.
 </div>
 </div>
 );
-const coverage =
-data.menu_coverage || 
-{
-total_students:0,
-selected_this_week:0
+}
+const coverage = {
+total_students:
+data.menu_coverage?.total_students || 0,
+
+selected_this_week:
+data.menu_coverage?.selected_this_week || 0
+
 };
-const pct = coverage.total_students
+const percentage =
+coverage.total_students
 ?
 Math.round(
-(coverage.selected_this_week /
-coverage.total_students)*100
+(
+coverage.selected_this_week /
+coverage.total_students
 )
-:0;
+*100
+)
+:
+0;
+const breakfast =
+data.menu_popularity?.breakfast?.top
+||
+(data.top_breakfast?.item
+?
+[
+{
+item:data.top_breakfast.item,
+count:Number(data.top_breakfast.count)||0
+}
+]
+:
+[]
+);
+
+const lunch =
+data.menu_popularity?.lunch?.top
+||
+(data.top_lunch?.item
+?
+[
+{
+item:data.top_lunch.item,
+count:Number(data.top_lunch.count)||0
+}
+]
+:
+[]
+);
+
+const dinner =
+data.menu_popularity?.dinner?.top
+||
+(data.top_dinner?.item
+?
+[
+{
+item:data.top_dinner.item,
+count:Number(data.top_dinner.count)||0
+}
+]
+:
+[]
+);
 return (
 <div className="page">
 <Navbar/>
@@ -124,12 +220,10 @@ Food Analytics
 <div className="stats-grid">
 <div className="stat-card">
 <div className="stat-label">
-Members
+Total Members
 </div>
 <div className="stat-value">
-{
-coverage.total_students
-}
+{coverage.total_students}
 </div>
 </div>
 <div className="stat-card">
@@ -137,27 +231,32 @@ coverage.total_students
 Pending Approvals
 </div>
 <div className="stat-value">
-{
-data.pending_approvals || 0
-}
+{data.pending_approvals || 0}
+</div>
+</div>
+<div className="stat-card">
+<div className="stat-label">
+Menu Coverage
+</div>
+<div className="stat-value">
+{percentage}%
 </div>
 </div>
 </div>
+<div
+style={{
+display:'grid',
+gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',
+gap:'20px'
+}}
+>
 <div className="card">
 <div className="card-title">
 Breakfast Popularity
 </div>
 <BarChart
-data={
-data.menu_popularity?.breakfast?.top ||
-data.top_breakfast
-?
-[
-data.top_breakfast
-]
-:
-[]
-}
+data={breakfast}
+color="#f59e0b"
 />
 </div>
 <div className="card">
@@ -165,17 +264,8 @@ data.top_breakfast
 Lunch Popularity
 </div>
 <BarChart
-data={
-data.menu_popularity?.lunch?.top ||
-data.top_lunch
-?
-[
-data.top_lunch
-]
-:
-[]
-}
-
+data={lunch}
+color="#16a34a"
 />
 </div>
 <div className="card">
@@ -183,40 +273,37 @@ data.top_lunch
 Dinner Popularity
 </div>
 <BarChart
-data={
-data.menu_popularity?.dinner?.top ||
-data.top_dinner
-?
-[
-data.top_dinner
-]
-:
-[]
-}
+data={dinner}
+color="#2563eb"
 />
 </div>
-<div className="card">
+</div>
+<div className="card"
+style={{
+marginTop:'20px'
+}}
+>
 <div className="card-title">
-Menu coverage
+Weekly Menu Selection
 </div>
 <p>
-{
-coverage.selected_this_week
-}
+{coverage.selected_this_week}
 /
-{
-coverage.total_students
-}
-members selected
+{coverage.total_students}
+members selected this week's menu
 </p>
-<div className="progress-bar">
+<div
+className="progress-bar"
+style={{
+height:'18px'
+}}
+>
 <div
 className="progress-fill"
 style={{
-width:`${pct}%`
+width:`${percentage}%`
 }}
->
-</div>
+/>
 </div>
 </div>
 </div>
