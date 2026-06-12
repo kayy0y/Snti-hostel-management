@@ -95,21 +95,14 @@ app.use((err, req, res, next) => {
   });
 });
 
-// =====================================
-// START SERVER
-// =====================================
-const PORT = process.env.PORT || 5000;
-
 connectDB()
   .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server on :${PORT}`);
-      startScheduler();
-    });
+    startScheduler();
+    console.log("DB connected (Vercel mode)");
   })
   .catch((err) => {
-    console.error('DB failed:', err.message);
-    process.exit(1);
+    console.error("DB failed:", err.message);
   });
 
+module.exports = app;
   
