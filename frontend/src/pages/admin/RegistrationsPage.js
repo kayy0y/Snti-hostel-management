@@ -63,8 +63,8 @@ const PaymentHistoryPanel = ({ userId, onUpdated }) => {
 
   if (loading) return <div style={{ padding: '1rem', textAlign: 'center', color: '#9ca3af', fontSize: '.85rem' }}>Loading payment history…</div>;
   if (!data) return null;
-
- const { data: payments = [], stats = {} } = data;
+const payments = Array.isArray(data.data) ? data.data : [];
+const stats = data.stats || {};
 
   return (
     <div style={{ padding: '1rem 1.25rem', background: '#fafbff', borderTop: '1px solid #e5e7eb' }}>
@@ -151,7 +151,8 @@ const PaymentHistoryPanel = ({ userId, onUpdated }) => {
               </tr>
             </thead>
             <tbody>
-              {payments.map(p => (
+              {/* Payment history table */}
+     {Array.isArray(payments) && payments.map(p => (
                 <tr key={p.id}>
                   <td>{fmtDate(p.payment_date)}</td>
                   <td style={{ fontWeight: 700 }}>₹{p.amount}</td>
