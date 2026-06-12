@@ -22,13 +22,7 @@ message:'Server error.'
 // ADD STUDENT
 const addStudent = async(req,res)=>{
 const {
-name,
-email,
-password,
-trainee_id,
-trainee_type,
-hostel_block,
-member_type
+name, email,password,trainee_id,trainee_type,hostel_block,member_type
 }=req.body;
 if(!name || !email || !password){
 return res.status(400).json({
@@ -57,23 +51,13 @@ const [result] = await pool.query(
 (name,email,password,trainee_id,trainee_type,hostel_block,member_type,role)
 VALUES(?,?,?,?,?,?,?,?)`,
 [
-name,
-email,
-hash,
-trainee_id || null,
-trainee_type || null,
-hostel_block || null,
-member_type || 'Hostel',
-role
+name,email,hash,trainee_id || null,trainee_type || null,hostel_block || null,member_type || 'Hostel',role
 ]
 );
 res.status(201).json({
 success:true,
 data:{
-id:result.insertId,
-name,
-email,
-role
+id:result.insertId,name,email,role
 }
 });
 }catch(e){
@@ -150,8 +134,7 @@ JOIN users u ON f.user_id=u.id
 WHERE f.user_id=?
 `,
 [
-req.user.id,
-req.params.id
+req.user.id, req.params.id
 ]
 );
 }
@@ -408,11 +391,7 @@ const getAdminList = async (req,res)=>{
   try{
     const [rows] = await pool.query(
       `SELECT
-      id,
-      name,
-      email,
-      is_active,
-      created_at
+      id,name,email,is_active,created_at
       FROM users
       WHERE role='admin'
       ORDER BY created_at DESC`
@@ -457,12 +436,7 @@ const exportExcel = async (req,res)=>{
   try{
     const [rows] = await pool.query(
       `SELECT
-      name,
-      email,
-      trainee_id,
-      member_type,
-      role,
-      is_active
+      name,email,trainee_id,member_type,role,is_active
       FROM users`
     );
     const wb = XLSX.utils.book_new();
@@ -495,11 +469,8 @@ const exportPDF = async (req,res)=>{
   try{
     const [rows] = await pool.query(
       `SELECT
-      name,
-      email,
-      member_type,
-      role
-      FROM users`
+      name,email,member_type,role,is_active
+     FROM users`
     );
     const doc = new PDFDocument();
     res.setHeader(
