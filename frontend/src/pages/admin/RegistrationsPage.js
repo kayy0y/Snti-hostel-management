@@ -73,7 +73,7 @@ const PaymentHistoryPanel = ({ userId, onUpdated }) => {
       <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
         <div style={{ background: '#dcfce7', borderRadius: 8, padding: '.5rem 1rem' }}>
           <div style={{ fontSize: '.7rem', color: '#15803d', fontWeight: 700, textTransform: 'uppercase' }}>Total Paid</div>
-          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#15803d' }}>₹{stats?.totalPaid || 0}</div>
+         <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#15803d' }}>₹{stats?.totalPaid || 0}</div>
         </div>
         <div style={{ background: '#dbeafe', borderRadius: 8, padding: '.5rem 1rem' }}>
           <div style={{ fontSize: '.7rem', color: '#1d4ed8', fontWeight: 700, textTransform: 'uppercase' }}>Payments Made</div>
