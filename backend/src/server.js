@@ -86,23 +86,19 @@ app.use((req, res) => {
 // =====================================
 // ERROR HANDLER
 // =====================================
-app.use((err, req, res, next) => {
-  console.error(err);
-
-  res.status(500).json({
-    success: false,
-    message: err.message || 'Server error.'
-  });
-});
+const PORT = process.env.PORT || 5000;
 
 connectDB()
   .then(() => {
     startScheduler();
-    console.log("DB connected (Vercel mode)");
+    console.log("DB connected");
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
   })
   .catch((err) => {
     console.error("DB failed:", err.message);
   });
 
 module.exports = app;
-  
