@@ -83,13 +83,18 @@ const removeItemFromPlan = async (req, res) => {
 
 // DELETE /api/weekly-plan/reset  (admin) body: { week_start }
 const resetWeekPlan = async (req, res) => {
-  const { week_start } = req.body;
-  if (!week_start) return res.status(400).json({ success: false, message: 'week_start required.' });
+  const week_start = req.body.week_start || getMonday();
   try {
     const [p] = await pool.query('DELETE FROM weekly_menu_plan WHERE week_start=?', [week_start]);
     const [s] = await pool.query('DELETE FROM menu_selection_items WHERE week_start=?',[week_start]);
     return res.json({ success: true, message: `Reset done. ${p.affectedRows} plan items, ${s.affectedRows} student selections cleared.` });
-  } catch (e) { return res.status(500).json({ success: false, message: 'Server error.' }); }
+  } catch (e) {
+  console.error("getMyMenuSelection ERROR:", e);
+  return res.status(500).json({
+    success: false,
+    message: e.message
+  });
+}
 };
 
 // GET /api/weekly-plan/available-weeks  (admin)
@@ -234,12 +239,12 @@ const getMyMenuSelection = async (req, res) => {
     });
 
   } catch (e) {
-    console.error(e);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error.'
-    });
-  }
+  console.error("getMyMenuSelection ERROR:", e);
+  return res.status(500).json({
+    success: false,
+    message: e.message
+  });
+}
 };
 
 // GET /api/menus/all-selections?week_start=YYYY-MM-DD  (admin)
