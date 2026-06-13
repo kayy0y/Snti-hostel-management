@@ -40,13 +40,11 @@ CREATE TABLE IF NOT EXISTS registrations (
   approved_at       DATETIME DEFAULT NULL,
   created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-
 -- ============================================================
---  MENUS
+-- 3. MENUS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS menus (
   id          BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -58,7 +56,7 @@ CREATE TABLE IF NOT EXISTS menus (
 );
 
 -- ============================================================
---  WEEKLY MENU PLAN
+-- 4. WEEKLY MENU PLAN
 -- ============================================================
 CREATE TABLE IF NOT EXISTS weekly_menu_plan (
   id          BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -72,7 +70,7 @@ CREATE TABLE IF NOT EXISTS weekly_menu_plan (
 );
 
 -- ============================================================
---  MENU SELECTIONS
+-- 5. MENU SELECTIONS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS menu_selections (
   id          BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -88,7 +86,7 @@ CREATE TABLE IF NOT EXISTS menu_selections (
 );
 
 -- ============================================================
---  FEEDBACK
+-- 6. FEEDBACK
 -- ============================================================
 CREATE TABLE IF NOT EXISTS feedback (
   id          BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -101,7 +99,7 @@ CREATE TABLE IF NOT EXISTS feedback (
 );
 
 -- ============================================================
--- SETTINGS
+-- 7. SETTINGS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS settings (
   id          INT AUTO_INCREMENT PRIMARY KEY,
@@ -111,17 +109,19 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 
 -- ============================================================
---  EMAIL LOGS
+-- 8. EMAIL LOGS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS email_logs (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  user_id BIGINT NULL,
+  id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id    BIGINT NOT NULL,
   email_type VARCHAR(50) NOT NULL,
-  status ENUM('sent','failed') NOT NULL DEFAULT 'sent',
-  sent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  status     ENUM('sent','failed') NOT NULL DEFAULT 'sent',
+  sent_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
 -- ============================================================
---  ARCHIVED REGISTRATIONS
+-- 9. ARCHIVED REGISTRATIONS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS archived_registrations (
   id                BIGINT NOT NULL,
@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS archived_registrations (
 );
 
 -- ============================================================
---  ARCHIVED FEEDBACK
+-- 10. ARCHIVED FEEDBACK
 -- ============================================================
 CREATE TABLE IF NOT EXISTS archived_feedback (
   id           BIGINT NOT NULL,
@@ -174,7 +174,7 @@ CREATE TABLE IF NOT EXISTS archived_feedback (
 );
 
 -- ============================================================
---  ARCHIVE LOG
+-- 11. ARCHIVE LOG
 -- ============================================================
 CREATE TABLE IF NOT EXISTS archive_log (
   id                     INT AUTO_INCREMENT PRIMARY KEY,
@@ -186,13 +186,40 @@ CREATE TABLE IF NOT EXISTS archive_log (
 );
 
 -- ============================================================
+-- 12. PAYMENT RECORDS (External members only)
+-- Tracks every payment made by external mess members.
+-- Each verified payment extends expiry_date by 30 days.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS payment_records (
+  id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id         BIGINT NOT NULL,
+  registration_id BIGINT NOT NULL,
+  amount          DECIMAL(10,2) NOT NULL,
+  payment_date    DATE NOT NULL,
+  payment_method  ENUM('UPI','Cash','Other') NOT NULL DEFAULT 'UPI',
+  transaction_ref VARCHAR(100) DEFAULT NULL,     -- UPI transaction ID or receipt no.
+  screenshot      LONGTEXT DEFAULT NULL,          -- base64 image (from member upload or manual)
+  status          ENUM('pending','verified','rejected') NOT NULL DEFAULT 'pending',
+  notes           TEXT DEFAULT NULL,              -- admin notes
+  verified_by     BIGINT DEFAULT NULL,
+  verified_at     DATETIME DEFAULT NULL,
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id)         REFERENCES users(id)         ON DELETE CASCADE,
+  FOREIGN KEY (registration_id) REFERENCES registrations(id) ON DELETE CASCADE,
+  INDEX idx_payment_user   (user_id),
+  INDEX idx_payment_reg    (registration_id),
+  INDEX idx_payment_status (status)
+);
+
+-- ============================================================
 -- INDEXES
 -- ============================================================
-CREATE INDEX idx_users_role ON users(role);
-CREATE INDEX idx_reg_approval ON registrations(approval_status);
-CREATE INDEX idx_menu_sel_week ON menu_selections(user_id, week_start);
-CREATE INDEX idx_feedback_user ON feedback(user_id);
-CREATE INDEX idx_weekly_plan_week ON weekly_menu_plan(week_start, day_name, meal_type);
+CREATE INDEX IF NOT EXISTS idx_users_role        ON users(role);
+CREATE INDEX IF NOT EXISTS idx_reg_approval      ON registrations(approval_status);
+CREATE INDEX IF NOT EXISTS idx_menu_sel_week     ON menu_selections(user_id, week_start);
+CREATE INDEX IF NOT EXISTS idx_feedback_user     ON feedback(user_id);
+CREATE INDEX IF NOT EXISTS idx_weekly_plan_week  ON weekly_menu_plan(week_start, day_name, meal_type);
+
 -- ============================================================
 -- SEED DATA
 -- ============================================================
@@ -233,52 +260,54 @@ INSERT IGNORE INTO menus (meal_type, item_name, category) VALUES
   ('Dinner',    'Egg Curry',            'Non-Veg'),
   ('Dinner',    'Special Thali',        'Special');
 
+
+
 -- ============================================================
--- PAYMENT RECORDS
+-- 12. PAYMENT RECORDS
+
 -- ============================================================
 CREATE TABLE IF NOT EXISTS payment_records (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-
-  user_id BIGINT NOT NULL,
+  id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id         BIGINT NOT NULL,
   registration_id BIGINT NOT NULL,
-
-  amount DECIMAL(10,2) NOT NULL,
-
-  payment_method ENUM('UPI','Cash','Screenshot')
-    NOT NULL DEFAULT 'UPI',
-
+  amount          DECIMAL(10,2) NOT NULL,
+  payment_method  ENUM('UPI','Cash','Screenshot') NOT NULL DEFAULT 'UPI',
   transaction_ref VARCHAR(100) DEFAULT NULL,
-  screenshot LONGTEXT DEFAULT NULL,
-
-  status ENUM('pending','verified','rejected')
-    NOT NULL DEFAULT 'pending',
-
-  verified_by BIGINT DEFAULT NULL,
-  verified_at DATETIME DEFAULT NULL,
-
-  notes VARCHAR(255) DEFAULT NULL,
-
-  payment_date DATE NOT NULL DEFAULT (CURDATE()),
-  period_start DATE NOT NULL,
-  period_end DATE NOT NULL,
-
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-  FOREIGN KEY (user_id)
-    REFERENCES users(id)
-    ON DELETE CASCADE,
-
-  FOREIGN KEY (registration_id)
-    REFERENCES registrations(id)
-    ON DELETE CASCADE,
-
-  FOREIGN KEY (verified_by)
-    REFERENCES users(id)
-    ON DELETE SET NULL,
-
-  INDEX idx_payment_user (user_id),
-  INDEX idx_payment_reg (registration_id),
+  screenshot      LONGTEXT DEFAULT NULL,
+  status          ENUM('pending','verified','rejected') NOT NULL DEFAULT 'pending',
+  verified_by     BIGINT DEFAULT NULL,
+  verified_at     DATETIME DEFAULT NULL,
+  notes           VARCHAR(255) DEFAULT NULL,
+  payment_date    DATE NOT NULL DEFAULT (CURDATE()),
+  period_start    DATE NOT NULL,
+  period_end      DATE NOT NULL,
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_payment_user   (user_id),
+  INDEX idx_payment_reg    (registration_id),
   INDEX idx_payment_status (status),
-  INDEX idx_payment_date (payment_date)
+  INDEX idx_payment_date   (payment_date)
+);
+
+
+
+-- ============================================================
+-- 13. MENU SELECTION ITEMS
+
+-- ============================================================
+CREATE TABLE IF NOT EXISTS menu_selection_items (
+  id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id     BIGINT NOT NULL,
+  week_start  DATE NOT NULL,
+  day_name    ENUM('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL,
+  meal_type   ENUM('Breakfast','Lunch','Dinner') NOT NULL,
+  menu_id     BIGINT NOT NULL,
+  item_name   VARCHAR(150) NOT NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_selection_item (user_id, week_start, day_name, meal_type, menu_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (menu_id) REFERENCES menus(id) ON DELETE CASCADE,
+  INDEX idx_msi_user_week (user_id, week_start),
+  INDEX idx_msi_week      (week_start)
 );
 

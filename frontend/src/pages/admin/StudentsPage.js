@@ -19,7 +19,12 @@ const MenuStudentCard = ({ name, email, role, hostel_block, member_type, days })
   const [expanded, setExpanded] = useState(false);
   const isExternal = member_type === 'Mess Only';
 
-  const filledDays = days.filter(d => d.breakfast || d.lunch || d.dinner).length;
+ const filledDays = days.filter(d =>
+  d.breakfast.length > 0 ||
+  d.lunch.length > 0 ||
+  d.dinner.length > 0
+).length;
+  const renderItems = (items) => items.length ? items.map(i => i.item_name).join(', ') : '—';
 
   return (
     <div style={{
@@ -85,27 +90,24 @@ const MenuStudentCard = ({ name, email, role, hostel_block, member_type, days })
                   </tr>
                 </thead>
                 <tbody>
-                  {days.map((row, i) => {
-                    const hasAny = row.breakfast || row.lunch || row.dinner;
-                    return (
-                      <tr key={row.day_name} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
-                        <td style={{ padding: '.5rem .75rem', fontWeight: 600, color: '#374151', borderBottom: '1px solid #f3f4f6' }}>
-                          {row.day_name}
+                  {days.map((row, i) => (
+                    <tr key={row.day_name} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                      <td style={{ padding: '.5rem .75rem', fontWeight: 600, color: '#374151', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top' }}>
+                        {row.day_name}
+                      </td>
+                      <td style={{ padding: '.5rem .75rem', color: row.breakfast.length ? '#111827' : '#d1d5db', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top' }}>
+                        {renderItems(row.breakfast)}
+                      </td>
+                      <td style={{ padding: '.5rem .75rem', color: row.lunch.length ? '#111827' : '#d1d5db', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top' }}>
+                        {renderItems(row.lunch)}
+                      </td>
+                      {!isExternal && (
+                        <td style={{ padding: '.5rem .75rem', color: row.dinner.length ? '#111827' : '#d1d5db', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top' }}>
+                          {renderItems(row.dinner)}
                         </td>
-                        <td style={{ padding: '.5rem .75rem', color: row.breakfast ? '#111827' : '#d1d5db', borderBottom: '1px solid #f3f4f6' }}>
-                          {row.breakfast || '—'}
-                        </td>
-                        <td style={{ padding: '.5rem .75rem', color: row.lunch ? '#111827' : '#d1d5db', borderBottom: '1px solid #f3f4f6' }}>
-                          {row.lunch || '—'}
-                        </td>
-                        {!isExternal && (
-                          <td style={{ padding: '.5rem .75rem', color: row.dinner ? '#111827' : '#d1d5db', borderBottom: '1px solid #f3f4f6' }}>
-                            {row.dinner || '—'}
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
+                      )}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -177,27 +179,17 @@ export default function StudentsPage() {
     catch { toast.error('Failed.'); }
   };
 
- const handleDeleteNow = async (id, name) => {
-  const archive = window.confirm(
-    `Permanently delete ${name}?\n\nOK = Archive data first\nCancel = Delete without archive`
-  );
-
-  const proceed = window.confirm(
-    `This will permanently delete ${name}. This cannot be undone.\nProceed?`
-  );
-
-  if (!proceed) return;
-
-  try {
-    await deleteStudentNow(id, archive);
-    toast.success(
-      `${name} permanently deleted.${archive ? ' Data archived.' : ''}`
-    );
-    loadStudents();
-  } catch (err) {
-    toast.error(err.response?.data?.message || 'Delete failed.');
-  }
-};
+  const handleDeleteNow = async (id, name) => {
+    const archive = window.confirm(`Permanently delete ${name}?\n\nClick OK to delete AND archive their data first.\nClick Cancel to delete WITHOUT archiving.`);
+    // If user dismissed entirely — check with a second prompt
+    const proceed = window.confirm(`This will PERMANENTLY delete ${name}. This cannot be undone. Proceed?`);
+    if (!proceed) return;
+    try {
+      await deleteStudentNow(id, archive);
+      toast.success(`${name} permanently deleted.${archive ? ' Data archived.' : ''}`);
+      loadStudents();
+    } catch (err) { toast.error(err.response?.data?.message || 'Delete failed.'); }
+  };
 
   const f = field => ({ value: form[field], onChange: e => setForm(p => ({...p, [field]: e.target.value})) });
 
@@ -205,11 +197,10 @@ export default function StudentsPage() {
     [s.name, s.email, s.trainee_id, s.hostel_block].some(v => v?.toLowerCase().includes(search.toLowerCase()))
   );
 
-  // Group flat menu rows by user_id → { userId: { name, email, member_type, days: [] } }
+  // Group flat item rows by user_id → { userId: { name, email, member_type, days: [{day_name, breakfast:[], lunch:[], dinner:[]}] } }
   const groupedMenu = (() => {
-  const map = {};
-
-  (menuData || []).forEach(row => {
+    const map = {};
+    menuData.forEach(row => {
       if (!map[row.user_id]) {
         map[row.user_id] = {
           user_id:     row.user_id,
@@ -218,14 +209,15 @@ export default function StudentsPage() {
           hostel_block:row.hostel_block,
           member_type: row.member_type,
           role:        row.role,
-          days:        DAYS.map(d => ({ day_name: d, breakfast: null, lunch: null, dinner: null })),
+          days:        DAYS.map(d => ({ day_name: d, breakfast: [], lunch: [], dinner: [] })),
         };
       }
       const dayEntry = map[row.user_id].days.find(d => d.day_name === row.day_name);
       if (dayEntry) {
-        dayEntry.breakfast = row.breakfast;
-        dayEntry.lunch     = row.lunch;
-        dayEntry.dinner    = row.dinner;
+        const mealKey = row.meal_type.toLowerCase(); // 'breakfast' | 'lunch' | 'dinner'
+        if (dayEntry[mealKey]) {
+          dayEntry[mealKey].push({ menu_id: row.menu_id, item_name: row.item_name });
+        }
       }
     });
     return Object.values(map);
@@ -236,8 +228,8 @@ export default function StudentsPage() {
   );
 
   const totalSelected  = groupedMenu.length;
-const totalStudents  = list.filter(s => s.is_active).length;
-const notSelected    = Math.max(0, totalStudents - totalSelected);
+  const totalStudents  = list.filter(s => s.is_active).length;
+  const notSelected = Math.max(0, totalStudents - totalSelected);
   return (
     <div className="page">
       <Navbar />

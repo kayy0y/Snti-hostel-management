@@ -14,12 +14,20 @@ const fmt = ws => {
   return `${f(s)} – ${f(e)}, ${e.getFullYear()}`;
 };
 
+// Render a list of items as comma-separated, or dash if empty
+const renderItems = (items) => {
+  if (!Array.isArray(items) || items.length === 0)
+    return <span style={{ color: '#d1d5db' }}>—</span>;
+
+  return items.map(i => i.item_name).join(', ');
+};
+
 export default function MyMenu() {
   const { user }   = useAuth();
   const navigate   = useNavigate();
   const isExternal = user?.role === 'external';
 
-  const [data,      setData]      = useState([]);
+  const [data,      setData]      = useState({});  // { Monday: { Breakfast:[], Lunch:[], Dinner:[] }, ... }
   const [reg,       setReg]       = useState(null);
   const [weekStart, setWeekStart] = useState('');
   const [isDefault, setIsDefault] = useState(false);
@@ -28,7 +36,7 @@ export default function MyMenu() {
   useEffect(() => {
     Promise.all([getMyMenuSelection(), getMyRegistration()])
       .then(([mRes, rRes]) => {
-        setData(mRes.data.data || []);
+        setData(mRes.data.data || {});
         setWeekStart(mRes.data.week_start);
         setIsDefault(mRes.data.is_last_week_default);
         setReg(rRes.data.data);
@@ -40,17 +48,10 @@ export default function MyMenu() {
     <div className="page"><Navbar /><div className="loading"><div className="spinner" /></div></div>
   );
 
-  const map = {};
-  DAYS.forEach(d => { map[d] = { breakfast: '—', lunch: '—', dinner: '—' }; });
-  data.forEach(r => {
-    map[r.day_name] = {
-      breakfast: r.breakfast || '—',
-      lunch:     r.lunch     || '—',
-      dinner:    r.dinner    || '—',
-    };
-  });
+  const hasMenu = Object.values(data).some(d =>
+    (d?.Breakfast?.length || 0) + (d?.Lunch?.length || 0) + (d?.Dinner?.length || 0) > 0
+  );
 
-  const hasMenu    = data.length > 0;
   const isApproved = reg?.approval_status === 'approved';
 
   // QR conditions: external user + admin approved + menu saved this week
@@ -107,21 +108,19 @@ export default function MyMenu() {
                   </tr>
                 </thead>
                 <tbody>
-                  {DAYS.map((d, i) => (
-                    <tr key={d} style={{ background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
-                      <td style={{ fontWeight: 700, fontSize: '.88rem' }}>{d}</td>
-                      <td style={{ fontSize: '.85rem', color: map[d].breakfast === '—' ? '#d1d5db' : 'inherit' }}>{map[d].breakfast}</td>
-                      <td style={{ fontSize: '.85rem', color: map[d].lunch     === '—' ? '#d1d5db' : 'inherit' }}>{map[d].lunch}</td>
-                      {!isExternal && <td style={{ fontSize: '.85rem', color: map[d].dinner === '—' ? '#d1d5db' : 'inherit' }}>{map[d].dinner}</td>}
-                    </tr>
-                  ))}
+                  {DAYS.map((d, i) => {
+                    const day = data[d] || { Breakfast: [], Lunch: [], Dinner: [] };
+                    return (
+                      <tr key={d} style={{ background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                        <td style={{ fontWeight: 700, fontSize: '.88rem', verticalAlign: 'top' }}>{d}</td>
+                        <td style={{ fontSize: '.85rem', verticalAlign: 'top' }}>{renderItems(day.Breakfast)}</td>
+                        <td style={{ fontSize: '.85rem', verticalAlign: 'top' }}>{renderItems(day.Lunch)}</td>
+                        {!isExternal && <td style={{ fontSize: '.85rem', verticalAlign: 'top' }}>{renderItems(day.Dinner)}</td>}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
-              {data[0]?.updated_at && (
-                <div style={{ fontSize: '.72rem', color: '#9ca3af', textAlign: 'right', marginTop: '.75rem' }}>
-                  Last saved: {new Date(data[0].updated_at).toLocaleString('en-IN')}
-                </div>
-              )}
             </div>
 
             {/* QR code — external + approved + menu saved */}

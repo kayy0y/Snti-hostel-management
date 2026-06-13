@@ -87,7 +87,7 @@ const resetWeekPlan = async (req, res) => {
   if (!week_start) return res.status(400).json({ success: false, message: 'week_start required.' });
   try {
     const [p] = await pool.query('DELETE FROM weekly_menu_plan WHERE week_start=?', [week_start]);
-    const [s] = await pool.query('DELETE FROM menu_selections WHERE week_start=?', [week_start]);
+    const [s] = await pool.query('DELETE FROM menu_selection_items WHERE week_start=?',[week_start]);
     return res.json({ success: true, message: `Reset done. ${p.affectedRows} plan items, ${s.affectedRows} student selections cleared.` });
   } catch (e) { return res.status(500).json({ success: false, message: 'Server error.' }); }
 };
@@ -114,38 +114,73 @@ const selectMenu = async (req, res) => {
     const isExternal  = req.user.role === 'external';
 
     for (const entry of week) {
-      const { day, breakfast_menu_id, lunch_menu_id, dinner_menu_id } = entry;
+      const { day, breakfast_menu_ids, lunch_menu_ids, dinner_menu_ids } = entry;
       if (!DAYS.includes(day)) continue;
 
       // Validate each non-null selection exists in the plan
       const slots = [
-        { meal: 'Breakfast', id: breakfast_menu_id },
-        { meal: 'Lunch',     id: lunch_menu_id },
-        ...( isExternal ? [] : [{ meal: 'Dinner', id: dinner_menu_id }] ),
-      ];
+  {
+    meal: 'Breakfast',
+    ids: Array.isArray(breakfast_menu_ids)
+      ? breakfast_menu_ids
+      : []
+  },
+  { meal: 'Lunch', ids: Array.isArray(lunch_menu_ids) ? lunch_menu_ids : []},
+  ...(isExternal
+    ? []
+    : [{ meal: 'Dinner', ids: Array.isArray(dinner_menu_ids)? dinner_menu_ids: [] }]
+  ),
+];
 
       for (const s of slots) {
-        if (!s.id) continue;
-        const [valid] = await pool.query(
-          'SELECT id FROM weekly_menu_plan WHERE week_start=? AND day_name=? AND meal_type=? AND menu_id=?',
-          [week_start, day, s.meal, s.id]
-        );
-        if (!valid.length)
-          return res.status(400).json({ success: false, message: `${s.meal} on ${day}: item not in this week's plan.` });
-      }
+  for (const id of s.ids) {
 
-      const getName = async (id) => {
-        if (!id) return null;
-        const [r] = await pool.query('SELECT item_name FROM menus WHERE id=?', [id]);
-        return r[0]?.item_name || null;
-      };
+    const [valid] = await pool.query(
+      'SELECT id FROM weekly_menu_plan WHERE week_start=? AND day_name=? AND meal_type=? AND menu_id=?',
+      [week_start, day, s.meal, id]
+    );
 
-      await pool.query(
-        `INSERT INTO menu_selections (user_id,week_start,day_name,breakfast,lunch,dinner)
-         VALUES (?,?,?,?,?,?)
-         ON DUPLICATE KEY UPDATE breakfast=VALUES(breakfast),lunch=VALUES(lunch),dinner=VALUES(dinner)`,
-        [user_id, week_start, day, await getName(breakfast_menu_id), await getName(lunch_menu_id), isExternal ? null : await getName(dinner_menu_id)]
-      );
+    if (!valid.length) {
+      return res.status(400).json({
+        success: false,
+        message: `${s.meal} on ${day}: item not in this week's plan.`
+      });
+    }
+  }
+}
+
+   await pool.query(
+  'DELETE FROM menu_selection_items WHERE user_id=? AND week_start=? AND day_name=?',
+  [user_id, week_start, day]
+);
+
+for (const s of slots) {
+  for (const id of s.ids) {
+
+    const [menu] = await pool.query(
+      'SELECT item_name FROM menus WHERE id=?',
+      [id]
+    );
+
+    if (!menu.length) continue;
+
+    await pool.query(
+      `INSERT INTO menu_selection_items
+      (user_id,week_start,day_name,meal_type,menu_id,item_name)
+      VALUES (?,?,?,?,?,?)`,
+      [
+        user_id,
+        week_start,
+        day,
+        s.meal,
+        id,
+        menu[0].item_name
+      ]
+    );
+  }
+} 
+
+    
     }
     return res.json({ success: true, message: 'Weekly menu saved.' });
   } catch (e) { console.error(e); return res.status(500).json({ success: false, message: 'Server error.' }); }
@@ -155,23 +190,56 @@ const selectMenu = async (req, res) => {
 const getMyMenuSelection = async (req, res) => {
   try {
     const week_start = getMonday();
+
     const [rows] = await pool.query(
-      `SELECT * FROM menu_selections WHERE user_id=? AND week_start=?
-       ORDER BY FIELD(day_name,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')`,
+      `SELECT *
+       FROM menu_selection_items
+       WHERE user_id=? AND week_start=?
+       ORDER BY
+       FIELD(day_name,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),
+       FIELD(meal_type,'Breakfast','Lunch','Dinner')`,
       [req.user.id, week_start]
     );
-    if (rows.length) return res.json({ success: true, data: rows, week_start, is_last_week_default: false, has_current_week: true });
+
+    if (rows.length) {
+      return res.json({
+        success: true,
+        data: rows,
+        week_start,
+        is_last_week_default: false,
+        has_current_week: true
+      });
+    }
 
     // Fall back to last week
     const lastMon = new Date(week_start);
     lastMon.setDate(lastMon.getDate() - 7);
+
     const [lastRows] = await pool.query(
-      `SELECT * FROM menu_selections WHERE user_id=? AND week_start=?
-       ORDER BY FIELD(day_name,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')`,
+      `SELECT *
+       FROM menu_selection_items
+       WHERE user_id=? AND week_start=?
+       ORDER BY
+       FIELD(day_name,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),
+       FIELD(meal_type,'Breakfast','Lunch','Dinner')`,
       [req.user.id, lastMon.toISOString().split('T')[0]]
     );
-    return res.json({ success: true, data: lastRows, week_start, is_last_week_default: lastRows.length > 0, has_current_week: false });
-  } catch (e) { return res.status(500).json({ success: false, message: 'Server error.' }); }
+
+    return res.json({
+      success: true,
+      data: lastRows,
+      week_start,
+      is_last_week_default: lastRows.length > 0,
+      has_current_week: false
+    });
+
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error.'
+    });
+  }
 };
 
 // GET /api/menus/all-selections?week_start=YYYY-MM-DD  (admin)
@@ -180,30 +248,46 @@ const getAllMenuSelections = async (req, res) => {
     const week_start = req.query.week_start || getMonday();
 
     const [rows] = await pool.query(
-      `SELECT ms.*, u.name, u.email, u.trainee_id, u.hostel_block, u.member_type, u.role
-       FROM menu_selections ms JOIN users u ON ms.user_id = u.id
-       WHERE ms.week_start = ?
-       ORDER BY u.name,
-         FIELD(ms.day_name,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')`,
+      `SELECT
+        ms.*,
+        u.name,
+        u.email,
+        u.trainee_id,
+        u.hostel_block,
+        u.member_type,
+        u.role
+      FROM menu_selection_items ms
+      JOIN users u ON ms.user_id = u.id
+      WHERE ms.week_start = ?
+      ORDER BY
+        u.name,
+        FIELD(ms.day_name,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),
+        FIELD(ms.meal_type,'Breakfast','Lunch','Dinner')`,
       [week_start]
     );
 
-    // Also return list of weeks that have any selections (for dropdown)
     const [weeks] = await pool.query(
-      `SELECT DISTINCT week_start,
-         COUNT(DISTINCT user_id) AS student_count
-       FROM menu_selections
+      `SELECT
+        week_start,
+        COUNT(DISTINCT user_id) AS student_count
+       FROM menu_selection_items
        GROUP BY week_start
        ORDER BY week_start DESC
        LIMIT 12`
     );
 
-    return res.json({ success: true, data: rows, week_start, available_weeks: weeks });
-  } catch (e) { return res.status(500).json({ success: false, message: 'Server error.' }); }
-};
+    return res.json({
+      success: true,
+      data: rows,
+      week_start,
+      available_weeks: weeks
+    });
 
-module.exports = {
-  getMenus, addMenuItem, deleteMenuItem,
-  getWeeklyPlan, addItemToPlan, removeItemFromPlan, resetWeekPlan, getAvailableWeeks,
-  selectMenu, getMyMenuSelection, getAllMenuSelections,
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error.'
+    });
+  }
 };

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -30,27 +30,85 @@ export default function Navbar() {
   const isAdmin  = user?.role === 'admin';
   const links    = isAdmin ? ADMIN_NAV : STUDENT_NAV;
 
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   const handleLogout = () => {
     logout();
     toast.success('Logged out.');
     navigate('/', { replace: true });
+    setDrawerOpen(false);
   };
 
+  const handleLinkClick = () => setDrawerOpen(false);
+
   return (
-    <nav className="navbar">
-      <div className="navbar-brand">
-        🍽️ SNTI Hostel Mess
-        {user?.role === 'external' && (
-          <span style={{ fontSize:'.7rem', background:'rgba(255,255,255,.2)', padding:'.15rem .5rem', borderRadius:99, marginLeft:'.4rem' }}>External</span>
-        )}
-      </div>
-      <div className="navbar-links">
-        {links.map(({ to, label }) => (
-          <Link key={to} to={to} className={`nav-link ${location.pathname === to ? 'active' : ''}`}>{label}</Link>
-        ))}
-        <span className="nav-user">{user?.name?.split(' ')[0]}</span>
-        <button className="nav-link" onClick={handleLogout}>Logout</button>
-      </div>
-    </nav>
+    <>
+      <nav className="navbar">
+        <div className="navbar-brand">
+          🍽️ SNTI Hostel Mess
+          {user?.role === 'external' && (
+            <span style={{ fontSize:'.7rem', background:'rgba(255,255,255,.2)', padding:'.15rem .5rem', borderRadius:99, marginLeft:'.4rem' }}>External</span>
+          )}
+        </div>
+
+        {/* Desktop links — hidden on mobile via CSS */}
+        <div className="navbar-links navbar-links-desktop">
+          {links.map(({ to, label }) => (
+            <Link key={to} to={to} className={`nav-link ${location.pathname === to ? 'active' : ''}`}>{label}</Link>
+          ))}
+          <span className="nav-user">{user?.name?.split(' ')[0]}</span>
+          <button className="nav-link" onClick={handleLogout}>Logout</button>
+        </div>
+
+        {/* Hamburger — visible only on mobile via CSS */}
+        <button
+          className="navbar-hamburger"
+          onClick={() => setDrawerOpen(!drawerOpen)}
+          aria-label="Open menu"
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+      </nav>
+
+      {/* Mobile drawer overlay */}
+      {drawerOpen && (
+        <div className="navbar-drawer-overlay" onClick={() => setDrawerOpen(false)}>
+          <div className="navbar-drawer" onClick={e => e.stopPropagation()}>
+            <div className="navbar-drawer-header">
+              <span style={{ fontWeight: 800, fontSize: '.95rem' }}>
+                🍽️ SNTI Hostel Mess
+                {user?.role === 'external' && (
+                  <span style={{ fontSize:'.7rem', background:'#dbeafe', color:'#1e40af', padding:'.15rem .5rem', borderRadius:99, marginLeft:'.4rem' }}>External</span>
+                )}
+              </span>
+              <button className="navbar-drawer-close" onClick={() => setDrawerOpen(false)}>✕</button>
+            </div>
+
+            <div className="navbar-drawer-user">
+              Signed in as <strong>{user?.name}</strong>
+            </div>
+
+            <div className="navbar-drawer-links">
+              {links.map(({ to, label }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className={`navbar-drawer-link ${location.pathname === to ? 'active' : ''}`}
+                  onClick={handleLinkClick}
+                >
+                  {label}
+                </Link>
+              ))}
+            </div>
+
+            <button className="navbar-drawer-logout" onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

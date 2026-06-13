@@ -46,37 +46,52 @@ export default function MenuSelection() {
         setIsDefault(selRes.data.is_last_week_default);
 
         // Build selection map from saved data
-        const map = {};
-        DAYS.forEach(d => { map[d] = { Breakfast:'', Lunch:'', Dinner:'' }; });
-        (selRes.data.data || []).forEach(row => {
-          MEALS.forEach(meal => {
-            const saved = row[meal.toLowerCase()];
-            if (!saved) return;
-            const match = planRes.data.data?.[row.day_name]?.[meal]?.find(i => i.item_name === saved);
-            if (match) map[row.day_name][meal] = match.menu_id;
-          });
-        });
-        setSelections(map);
+        // Build selection map from menu_selection_items response
+const map = {};
+
+DAYS.forEach(d => {map[d] = { Breakfast: [],Lunch: [],Dinner: []};});
+
+(selRes.data.data || []).forEach(row => {
+  if (!map[row.day_name]) return;
+
+  if (!map[row.day_name][row.meal_type]) {
+    map[row.day_name][row.meal_type] = [];
+  }
+
+  map[row.day_name][row.meal_type].push(row.menu_id);
+});
+
+setSelections(map);
       } catch { toast.error('Failed to load menu.'); }
       finally { setFetching(false); }
     })();
   }, []);
 
-  const pick = (day, meal, id) => setSelections(p => ({ ...p, [day]: { ...p[day], [meal]: id } }));
+  const pick = (day, meal, id) => {setSelections(prev => {const current = prev[day]?.[meal] || [];const updated = current.includes(id) ? current.filter(x => x !== id) : [...current, id];
+return {
+      ...prev,
+      [day]: {
+        ...prev[day],
+        [meal]: updated
+      }
+    };
+  });
+};
 
-  const filled = DAYS.reduce((acc, d) => acc + MEALS.filter(m => selections[d]?.[m]).length, 0);
-  const dayDone = day => MEALS.every(m => selections[day]?.[m]);
-
+  const filled = DAYS.reduce((acc, d) => acc + MEALS.filter(m => selections[d]?.[m]?.length > 0).length, 0);
+  const dayDone = day => MEALS.every(m => selections[day]?.[m]?.length > 0);
   const handleSave = async () => {
-    const incomplete = DAYS.filter(d => MEALS.some(m => !selections[d]?.[m]));
+    const incomplete = DAYS.filter(d =>
+  MEALS.some(m => !selections[d]?.[m]?.length)
+);
     if (incomplete.length && !window.confirm(`${incomplete.join(', ')} not fully filled. Save anyway?`)) return;
     setSaving(true);
     try {
       const week = DAYS.map(day => ({
         day,
-        breakfast_menu_id: selections[day]?.Breakfast || null,
-        lunch_menu_id:     selections[day]?.Lunch     || null,
-        dinner_menu_id:    isExternal ? null : (selections[day]?.Dinner || null),
+       breakfast_menu_ids: selections[day]?.Breakfast || [],
+       lunch_menu_ids: selections[day]?.Lunch || [],
+       dinner_menu_ids: isExternal ? [] : (selections[day]?.Dinner || []),
       }));
       await selectMenu({ week });
       toast.success('Weekly menu saved!');
@@ -137,12 +152,13 @@ export default function MenuSelection() {
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(250px,1fr))', gap:'1rem' }}>
               {MEALS.map(meal => {
                 const opts = plan[activeDay]?.[meal] || [];
-                const selId = selections[activeDay]?.[meal] || '';
+                const selIds = selections[activeDay]?.[meal] || [];
                 return (
                   <div className="card" key={meal}>
                     <div style={{ fontWeight:700, marginBottom:'.75rem', fontSize:'.95rem' }}>
                       {meal === 'Breakfast' ? '🌅' : meal === 'Lunch' ? '☀️' : '🌙'} {meal}
-                      {selId && <span style={{ fontSize:'.72rem', color:'#15803d', marginLeft:'.5rem', fontWeight:600 }}>Selected</span>}
+                      {selIds.length > 0 && (<span style={{ fontSize:'.72rem', color:'#15803d', marginLeft:'.5rem', fontWeight:600 }}>Selected ({selIds.length})</span>
+)}
                     </div>
                     {opts.length === 0 ? (
                       <div style={{ fontSize:'.8rem', color:'#9ca3af', background:'#f9fafb', borderRadius:6, padding:'.6rem', textAlign:'center' }}>
@@ -151,7 +167,7 @@ export default function MenuSelection() {
                     ) : (
                       <div style={{ display:'flex', flexDirection:'column', gap:'.4rem' }}>
                         {opts.map(item => {
-                          const isSel = selId === item.menu_id;
+                          const isSel = selIds.includes(item.menu_id);
                           return (
                             <div key={item.menu_id} onClick={() => pick(activeDay, meal, item.menu_id)} style={{
                               padding:'.55rem .85rem', borderRadius:8, cursor:'pointer',
