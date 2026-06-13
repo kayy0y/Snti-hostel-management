@@ -88,8 +88,8 @@ const resetWeekPlan = async (req, res) => {
     const [p] = await pool.query('DELETE FROM weekly_menu_plan WHERE week_start=?', [week_start]);
     const [s] = await pool.query('DELETE FROM menu_selection_items WHERE week_start=?',[week_start]);
     return res.json({ success: true, message: `Reset done. ${p.affectedRows} plan items, ${s.affectedRows} student selections cleared.` });
-  } catch (e) {
-  console.error("getMyMenuSelection ERROR:", e);
+  }  catch (e) {
+  console.error("resetWeekPlan ERROR:", e);
   return res.status(500).json({
     success: false,
     message: e.message
@@ -194,6 +194,14 @@ for (const s of slots) {
 // GET /api/menus/my-selection  (student)
 const getMyMenuSelection = async (req, res) => {
   try {
+
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success:false,
+        message:"User not authenticated"
+      });
+    }
+
     const week_start = getMonday();
 
     const [rows] = await pool.query(
