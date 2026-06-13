@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API = axios.create({ baseURL: 'https://snti-hostel-backend.onrender.com/api' });
+const API = axios.create({ baseURL: 'hhttps://snti-hostel-backend.onrender.com/api' });
 
 API.interceptors.request.use(cfg => {
   const t = localStorage.getItem('token');

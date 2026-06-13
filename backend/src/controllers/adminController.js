@@ -214,69 +214,7 @@ message:'Server error.'
 });
 }
 };
-// RESET BATCH
-const resetBatch = async (req, res) => {
-  const { archive } = req.body;
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
-    if (archive) {
-      await conn.query(
-        `
-        INSERT IGNORE INTO archived_registrations
-        (
-          id, user_id, mess_type, registration_date, expiry_date, status, user_name, user_email, archive_year, archived_by
-        )
-        SELECT
-          r.id, r.user_id, r.mess_type, r.registration_date, r.expiry_date, r.status, u.name, u.email, YEAR(NOW()),
-          ?
-        FROM registrations r
-        JOIN users u
-        ON r.user_id=u.id
-        `,
-        [
-          req.user.id
-        ]
-      );
-      await conn.query(
-        `
-        INSERT IGNORE INTO archived_feedback
-        (
-          id, user_id, rating, category,comments,created_at,user_name,user_email,archive_year,archived_by
-        )
-        SELECT
-          f.id,f.user_id,f.rating,f.category,f.comments,f.created_at,u.name,u.email,YEAR(NOW()),?
-        FROM feedback f
-        JOIN users u
-        ON f.user_id=u.id
-        `,
-        [
-          req.user.id
-        ]
-      );
-    }
-    await conn.query(
-      `
-      DELETE FROM users
-      WHERE role IN ('student','external')
-      `
-    );
-    await conn.commit();
-    return res.json({
-      success:true,
-      message:"Batch reset completed."
-    });
-  } catch(error){
-    await conn.rollback();
-    console.error(error);
-    return res.status(500).json({
-      success:false,
-      message:"Server error."
-    });
-  } finally {
-    conn.release();
-  }
-};
+
 const getDashboardStats = async (req, res) => {
   try {
     const [[students]] = await pool.query(
@@ -548,6 +486,31 @@ const getAnalytics = async (req,res)=>{
 
   }
 };
+
+const resetBatch = async (req,res)=>{
+  try{
+
+    await pool.query(
+      "DELETE FROM users WHERE role!='admin'"
+    );
+
+    res.json({
+      success:true,
+      message:"Batch reset completed"
+    });
+
+  }catch(e){
+
+    console.log(e);
+
+    res.status(500).json({
+      success:false,
+      message:e.message
+    });
+
+  }
+};
+
 module.exports = {
   getAllStudents,
   addStudent,
@@ -555,7 +518,6 @@ module.exports = {
   deleteStudentNow,
   deactivateSelf,
   deleteSelf,
-  resetBatch,
   getDashboardStats,
   getQuickAnalytics,
   createAdmin,
@@ -563,5 +525,6 @@ module.exports = {
   deleteExpiredUsers,
   exportExcel,
   exportPDF,
-  getAnalytics
+  getAnalytics,
+  resetBatch
 };

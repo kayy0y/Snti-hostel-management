@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 
-const { protect, adminOnly } = require('../middleware/auth');
 const admin = require('../controllers/adminController');
+const { protect, adminOnly } = require('../middleware/auth');
 
 router.get(
 '/dashboard-stats',
@@ -43,4 +43,10 @@ router.delete(
 '/students/:id/now',
 protect, adminOnly, admin.deleteStudentNow
 );
+
+router.post(
+  '/reset-batch',
+  protect, adminOnly, admin.resetBatch
+);
+
 module.exports = router;

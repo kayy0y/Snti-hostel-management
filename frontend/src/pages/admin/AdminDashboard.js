@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/shared/Navbar';
-import { getDashboardStats, getQuickAnalytics, deleteExpiredUsers, exportExcel, exportPDF, createAdmin, getAdminList } from '../../utils/api';
+import { getDashboardStats, getQuickAnalytics, deleteExpiredUsers, resetBatch, exportExcel, exportPDF, createAdmin, getAdminList } from '../../utils/api';
 import toast from 'react-hot-toast';
 
 const EMPTY = { name:'', email:'', password:'' };
@@ -31,10 +31,27 @@ export default function AdminDashboard() {
 
   const handleExcel = async () => { try { const r = await exportExcel(); dl(r.data,'snti_report.xlsx'); toast.success('Excel downloaded.'); } catch { toast.error('Export failed.'); } };
   const handlePDF   = async () => { try { const r = await exportPDF();   dl(new Blob([r.data],{type:'application/pdf'}),'snti_report.pdf'); toast.success('PDF downloaded.'); } catch { toast.error('PDF failed.'); } };
-  const handleExpired = async () => {
-    if (!window.confirm('Deactivate all expired accounts?')) return;
-    try { const r = await deleteExpiredUsers(); toast.success(r.data.message); } catch { toast.error('Failed.'); }
-  };
+const handleResetBatch = async () => {
+
+  if(!window.confirm("Delete all students and external members?")) return;
+
+  try{
+
+    const r = await resetBatch({
+      archive:true
+    });
+
+    toast.success(r.data.message);
+
+  }catch(err){
+
+    toast.error(
+      err.response?.data?.message || "Reset failed"
+    );
+
+  }
+
+};
 
   const handleCreateAdmin = async e => {
     e.preventDefault();
@@ -68,6 +85,7 @@ export default function AdminDashboard() {
             <button className="btn btn-success btn-sm" onClick={handleExcel}>Export Excel</button>
             <button className="btn btn-primary btn-sm" onClick={handlePDF}>Export PDF</button>
             <button className="btn btn-danger  btn-sm" onClick={handleExpired}>Delete Expired</button>
+            <button className="btn btn-warning btn-sm" onClick={handleResetBatch}>Reset Batch</button>
           </div>
         </div>
 
