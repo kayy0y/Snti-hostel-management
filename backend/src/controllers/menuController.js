@@ -291,3 +291,16 @@ const getAllMenuSelections = async (req, res) => {
     });
   }
 };
+module.exports = {
+  getMenus,
+  addMenuItem,
+  deleteMenuItem,
+  selectMenu,
+  getMyMenuSelection,
+  getAllMenuSelections,
+  getWeeklyPlan,
+  addItemToPlan,
+  removeItemFromPlan,
+  resetWeekPlan,
+  getAvailableWeeks
+};
