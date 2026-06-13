@@ -296,18 +296,42 @@ CREATE TABLE IF NOT EXISTS payment_records (
 
 -- ============================================================
 CREATE TABLE IF NOT EXISTS menu_selection_items (
-  id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-  user_id     BIGINT NOT NULL,
-  week_start  DATE NOT NULL,
-  day_name    ENUM('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL,
-  meal_type   ENUM('Breakfast','Lunch','Dinner') NOT NULL,
-  menu_id     BIGINT NOT NULL,
-  item_name   VARCHAR(150) NOT NULL,
-  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY unique_selection_item (user_id, week_start, day_name, meal_type, menu_id),
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (menu_id) REFERENCES menus(id) ON DELETE CASCADE,
-  INDEX idx_msi_user_week (user_id, week_start),
-  INDEX idx_msi_week      (week_start)
-);
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
 
+  user_id BIGINT NOT NULL,
+
+  week_start DATE NOT NULL,
+
+  day_name ENUM(
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday'
+  ) NOT NULL,
+
+  meal_type ENUM(
+    'Breakfast',
+    'Lunch',
+    'Dinner'
+  ) NOT NULL,
+
+  menu_id BIGINT NOT NULL,
+
+  item_name VARCHAR(150) NOT NULL,
+
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE KEY unique_selection_item
+  (user_id,week_start,day_name,meal_type,menu_id),
+
+  FOREIGN KEY (user_id)
+  REFERENCES users(id)
+  ON DELETE CASCADE,
+
+  FOREIGN KEY (menu_id)
+  REFERENCES menus(id)
+  ON DELETE CASCADE
+);

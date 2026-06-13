@@ -84,17 +84,31 @@ const removeItemFromPlan = async (req, res) => {
 // DELETE /api/weekly-plan/reset  (admin) body: { week_start }
 const resetWeekPlan = async (req, res) => {
   const week_start = req.body.week_start || getMonday();
+
   try {
-    const [p] = await pool.query('DELETE FROM weekly_menu_plan WHERE week_start=?', [week_start]);
-    const [s] = await pool.query('DELETE FROM menu_selection_items WHERE week_start=?',[week_start]);
-    return res.json({ success: true, message: `Reset done. ${p.affectedRows} plan items, ${s.affectedRows} student selections cleared.` });
-  }  catch (e) {
-  console.error("resetWeekPlan ERROR:", e);
-  return res.status(500).json({
-    success: false,
-    message: e.message
-  });
-}
+    const [p] = await pool.query(
+      'DELETE FROM weekly_menu_plan WHERE week_start=?',
+      [week_start]
+    );
+
+    const [s] = await pool.query(
+      'DELETE FROM menu_selection_items WHERE week_start=?',
+      [week_start]
+    );
+
+    return res.json({
+      success: true,
+      message: `Reset done. ${p.affectedRows} plan items, ${s.affectedRows} student selections cleared.`
+    });
+
+  } catch (e) {
+    console.error("resetWeekPlan ERROR:", e);
+
+    return res.status(500).json({
+      success:false,
+      message:e.message
+    });
+  }
 };
 
 // GET /api/weekly-plan/available-weeks  (admin)
