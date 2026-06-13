@@ -34,15 +34,36 @@ const runMenuReminders = async () => {
   console.log(`[Scheduler] Menu reminders: ${rows.length}`);
 };
 
+// Runs every Monday 00:01 IST.
+// Deletes LAST week's weekly_menu_plan, menu_selection_items, and menu_selections —
+// so admin only ever sees the current week by default once a new week starts.
 const runWeeklyReset = async () => {
-  const w = getMonday();
-  const last = new Date(w); last.setDate(last.getDate()-7);
-  const [r] = await pool.query('DELETE FROM menu_selections WHERE week_start<?', [last.toISOString().split('T')[0]]);
-  console.log(`[Scheduler] Weekly reset: ${r.affectedRows} old rows`);
+  const currentWeek = getMonday();
+  const lastWeek = new Date(currentWeek);
+  lastWeek.setDate(lastWeek.getDate() - 7);
+  const lastWeekStr = lastWeek.toISOString().split('T')[0];
+
+  const [planResult] = await pool.query(
+    'DELETE FROM weekly_menu_plan WHERE week_start = ?',
+    [lastWeekStr]
+  );
+  const [itemsResult] = await pool.query(
+    'DELETE FROM menu_selection_items WHERE week_start = ?',
+    [lastWeekStr]
+  );
+  const [legacyResult] = await pool.query(
+    'DELETE FROM menu_selections WHERE week_start = ?',
+    [lastWeekStr]
+  );
+
+  console.log(`[Scheduler] Weekly reset for ${lastWeekStr}: ${planResult.affectedRows} plan items, ${itemsResult.affectedRows} selections, ${legacyResult.affectedRows} legacy rows removed.`);
 };
 
 // ── Hard-delete accounts pending deletion after 48hrs ────────────────────
-
+// Runs daily at 1am. Finds users deactivated by admin 48+hrs ago.
+// Keeps their registration + feedback rows in archive tables (already handled
+// by deleteStudent which snapshots before deactivating if needed — but since
+// CASCADE is on, we must archive first here too).
 const runPendingDeletions = async () => {
   try {
     console.log('[Scheduler] Checking pending deletions...');

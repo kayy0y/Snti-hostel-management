@@ -90,6 +90,9 @@ export default function MenuManagement() {
                 <div style={{ fontSize:'.83rem', color:'#6b7280', marginTop:'1.1rem' }}>{fmtWeek(weekStart)}</div>
                 {isPlanSet && <button className="btn btn-danger btn-sm" style={{ marginTop:'1.1rem', marginLeft:'auto' }} onClick={resetWeek}>Reset This Week</button>}
               </div>
+              <div style={{ fontSize: '.78rem', color: '#9ca3af', marginTop: '.6rem' }}>
+                Tip: pick any future date to plan menus ahead of time. Each week's plan and student selections are automatically removed once that week ends.
+              </div>
               <div style={{ marginTop:'.9rem' }}>
                 <div style={{ display:'flex', justifyContent:'space-between', fontSize:'.78rem', color:'#6b7280', marginBottom:'.3rem' }}>
                   <span>{totalFilled()} / 21 slots have options</span><span>{Math.round((totalFilled()/21)*100)}%</span>
@@ -99,10 +102,24 @@ export default function MenuManagement() {
             </div>
 
             {weeks.length > 0 && (
-              <div style={{ display:'flex', gap:'.35rem', flexWrap:'wrap', marginBottom:'1rem', alignItems:'center' }}>
-                <span style={{ fontSize:'.78rem', color:'#6b7280' }}>Previous:</span>
-                {weeks.map(w => <button key={w.week_start} className={`btn btn-sm ${w.week_start===weekStart?'btn-primary':'btn-outline'}`} style={{ fontSize:'.72rem' }} onClick={() => { setWeekStart(w.week_start); loadPlan(w.week_start); }}>{new Date(w.week_start).toLocaleDateString('en-IN',{day:'numeric',month:'short'})} ({w.item_count})</button>)}
-              </div>
+              <details style={{ marginBottom: '1rem' }}>
+                <summary style={{ fontSize: '.82rem', color: '#6b7280', cursor: 'pointer', fontWeight: 600, userSelect: 'none' }}>
+                  View past weeks ({weeks.length})
+                </summary>
+                <div style={{ display:'flex', gap:'.35rem', flexWrap:'wrap', marginTop: '.6rem', alignItems:'center' }}>
+                  {weeks.map(w => {
+                    const ws = w.week_start.split('T')[0];
+                    return (
+                      <button key={ws} className={`btn btn-sm ${ws===weekStart?'btn-primary':'btn-outline'}`} style={{ fontSize:'.72rem' }} onClick={() => { setWeekStart(ws); loadPlan(ws); }}>
+                        {new Date(ws).toLocaleDateString('en-IN',{day:'numeric',month:'short'})} ({w.item_count})
+                      </button>
+                    );
+                  })}
+                  <button className="btn btn-sm btn-outline" style={{ fontSize:'.72rem' }} onClick={() => { const cw = getMonday(); setWeekStart(cw); loadPlan(cw); }}>
+                    ← Back to current week
+                  </button>
+                </div>
+              </details>
             )}
 
             {/* Day tabs */}

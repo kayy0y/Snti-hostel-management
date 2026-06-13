@@ -83,7 +83,9 @@ const removeItemFromPlan = async (req, res) => {
 
 // DELETE /api/weekly-plan/reset  (admin) body: { week_start }
 const resetWeekPlan = async (req, res) => {
-  const week_start = req.body?.week_start || getMonday();
+  // req.body can be undefined if no body/content-type sent with DELETE
+  const body = req.body || {};
+  const week_start = body.week_start || getMonday();
 
   try {
     const [p] = await pool.query(
@@ -96,28 +98,41 @@ const resetWeekPlan = async (req, res) => {
       [week_start]
     );
 
+    // Also clear the legacy menu_selections row for that week (kept for back-compat checks)
+    await pool.query(
+      'DELETE FROM menu_selections WHERE week_start=?',
+      [week_start]
+    );
+
     return res.json({
       success: true,
-      message: `Reset done. ${p.affectedRows} plan items, ${s.affectedRows} student selections cleared.`
+      message: `Reset done. ${p.affectedRows} plan items, ${s.affectedRows} student selections cleared for week starting ${week_start}.`
     });
 
   } catch (e) {
     console.error("resetWeekPlan ERROR:", e);
-
     return res.status(500).json({
-      success:false,
-      message:e.message
+      success: false,
+      message: e.sqlMessage || e.message
     });
   }
 };
 
 // GET /api/weekly-plan/available-weeks  (admin)
+// Returns past weeks (for the "view past weeks" dropdown) — excludes current week
 const getAvailableWeeks = async (req, res) => {
   try {
+    const current_week = getMonday();
     const [rows] = await pool.query(
-      'SELECT week_start, COUNT(*) AS item_count FROM weekly_menu_plan GROUP BY week_start ORDER BY week_start DESC LIMIT 8'
+      `SELECT week_start, COUNT(*) AS item_count
+       FROM weekly_menu_plan
+       WHERE week_start < ?
+       GROUP BY week_start
+       ORDER BY week_start DESC
+       LIMIT 8`,
+      [current_week]
     );
-    return res.json({ success: true, data: rows, current_week: getMonday() });
+    return res.json({ success: true, data: rows, current_week });
   } catch (e) { return res.status(500).json({ success: false, message: 'Server error.' }); }
 };
 
@@ -208,7 +223,6 @@ for (const s of slots) {
 // GET /api/menus/my-selection  (student)
 const getMyMenuSelection = async (req, res) => {
   try {
-
     if (!req.user || !req.user.id) {
       return res.status(401).json({
         success:false,
@@ -217,23 +231,34 @@ const getMyMenuSelection = async (req, res) => {
     }
 
     const week_start = getMonday();
-    console.log("USER:", req.user.id);
-    console.log("WEEK:", week_start);
 
-    const [rows] = await pool.query(
-      `SELECT *
-       FROM menu_selection_items
-       WHERE user_id=? AND week_start=?
-       ORDER BY
-       FIELD(day_name,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),
-       FIELD(meal_type,'Breakfast','Lunch','Dinner')`,
-      [req.user.id, week_start]
-    );
+    // Helper: fetch flat rows and group them into { Monday: { Breakfast:[], Lunch:[], Dinner:[] }, ... }
+    const fetchGrouped = async (ws) => {
+      const [rows] = await pool.query(
+        `SELECT day_name, meal_type, menu_id, item_name
+         FROM menu_selection_items
+         WHERE user_id=? AND week_start=?
+         ORDER BY
+           FIELD(day_name,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),
+           FIELD(meal_type,'Breakfast','Lunch','Dinner')`,
+        [req.user.id, ws]
+      );
 
-    if (rows.length) {
+      const grouped = {};
+      DAYS.forEach(d => { grouped[d] = { Breakfast: [], Lunch: [], Dinner: [] }; });
+      rows.forEach(r => {
+        if (grouped[r.day_name] && grouped[r.day_name][r.meal_type]) {
+          grouped[r.day_name][r.meal_type].push({ menu_id: r.menu_id, item_name: r.item_name });
+        }
+      });
+      return { grouped, rowCount: rows.length };
+    };
+
+    const current = await fetchGrouped(week_start);
+    if (current.rowCount > 0) {
       return res.json({
         success: true,
-        data: rows,
+        data: current.grouped,
         week_start,
         is_last_week_default: false,
         has_current_week: true
@@ -243,32 +268,24 @@ const getMyMenuSelection = async (req, res) => {
     // Fall back to last week
     const lastMon = new Date(week_start);
     lastMon.setDate(lastMon.getDate() - 7);
-
-    const [lastRows] = await pool.query(
-      `SELECT *
-       FROM menu_selection_items
-       WHERE user_id=? AND week_start=?
-       ORDER BY
-       FIELD(day_name,'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),
-       FIELD(meal_type,'Breakfast','Lunch','Dinner')`,
-      [req.user.id, lastMon.toISOString().split('T')[0]]
-    );
+    const lastWeekStr = lastMon.toISOString().split('T')[0];
+    const last = await fetchGrouped(lastWeekStr);
 
     return res.json({
       success: true,
-      data: lastRows,
+      data: last.grouped,
       week_start,
-      is_last_week_default: lastRows.length > 0,
+      is_last_week_default: last.rowCount > 0,
       has_current_week: false
     });
 
   } catch (e) {
-  console.error("getMyMenuSelection ERROR:", e);
-  return res.status(500).json({
-    success: false,
-    message: e.message
-  });
-}
+    console.error("getMyMenuSelection ERROR:", e);
+    return res.status(500).json({
+      success: false,
+      message: e.sqlMessage || e.message
+    });
+  }
 };
 
 // GET /api/menus/all-selections?week_start=YYYY-MM-DD  (admin)
