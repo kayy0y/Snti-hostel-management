@@ -83,7 +83,7 @@ const removeItemFromPlan = async (req, res) => {
 
 // DELETE /api/weekly-plan/reset  (admin) body: { week_start }
 const resetWeekPlan = async (req, res) => {
-  const week_start = req.body.week_start || getMonday();
+  const week_start = req.body?.week_start || getMonday();
 
   try {
     const [p] = await pool.query(
@@ -217,6 +217,8 @@ const getMyMenuSelection = async (req, res) => {
     }
 
     const week_start = getMonday();
+    console.log("USER:", req.user.id);
+    console.log("WEEK:", week_start);
 
     const [rows] = await pool.query(
       `SELECT *

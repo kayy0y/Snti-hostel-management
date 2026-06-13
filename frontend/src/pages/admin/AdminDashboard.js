@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/shared/Navbar';
-import { getDashboardStats, getQuickAnalytics, deleteExpiredUsers, resetBatch, exportExcel, exportPDF, createAdmin, getAdminList } from '../../utils/api';
+import {getDashboardStats, getQuickAnalytics, deleteExpiredUsers, resetBatch, exportExcel, exportPDF, createAdmin, getAdminList} from '../../utils/api';
+
 import toast from 'react-hot-toast';
 
-const EMPTY = { name:'', email:'', password:'' };
+const EMPTY = {
+  name: '',
+  email: '',
+  password: ''
+};
 
 const dl = (blob, name) => {
   const url = window.URL.createObjectURL(new Blob([blob]));
@@ -65,6 +70,15 @@ const handleResetBatch = async () => {
     } catch (err) { toast.error(err.response?.data?.message || 'Failed.'); }
     finally { setSaving(false); }
   };
+
+  const handleExpired = async () => {
+  try {
+    const r = await deleteExpiredUsers();
+    toast.success(r.data.message || 'Expired users deleted.');
+  } catch {
+    toast.error('Delete failed.');
+  }
+};
 
   const CARDS = [
     { title:'Students',       desc:'Manage all trainees',          path:'/admin/students' },

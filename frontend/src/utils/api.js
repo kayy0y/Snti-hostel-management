@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API = axios.create({ baseURL: 'hhttps://snti-hostel-backend.onrender.com/api' });
+const API = axios.create({ baseURL: 'https://snti-hostel-backend.onrender.com/api' });
 
 API.interceptors.request.use(cfg => {
   const t = localStorage.getItem('token');
@@ -47,7 +47,7 @@ export const getAllMenuSelections = (ws) => API.get(`/menus/all-selections${ws ?
 export const getWeeklyPlan      = ws  => API.get(`/weekly-plan${ws ? `?week_start=${ws}` : ''}`);
 export const addItemToPlan      = d   => API.post('/weekly-plan/add-item', d);
 export const removeItemFromPlan = pid => API.delete(`/weekly-plan/remove-item/${pid}`);
-export const resetWeekPlan      = d   => API.delete('/weekly-plan/reset', { data: d });
+export const resetWeekPlan      = (d = {}) =>API.delete('/weekly-plan/reset', {data: {week_start: d.week_start || new Date().toISOString().split('T')[0]}});
 export const getAvailableWeeks  = ()  => API.get('/weekly-plan/available-weeks');
 
 // Feedback
@@ -55,9 +55,9 @@ export const submitFeedback = d => API.post('/feedback', d);
 export const getAllFeedback  = () => API.get('/feedback');
 
 // Admin
-export const getAllStudents      = ()           => API.get('/admin/students');
+export const getAllStudents     = ()           => API.get('/admin/students');
 export const addStudent         = d            => API.post('/admin/students', d);
-export const deleteStudent      = id           => API.delete(`/admin/students/${id}`);
+export const deleteStudent      = id           => API.delete(`/admin/students/${id}/now`);
 export const deleteStudentNow   = (id, archive)=> API.delete(`/admin/students/${id}/now`, { data: { archive } });
 export const resetBatch         = (archive)    => API.post('/admin/reset-batch', { archive });
 export const deleteExpiredUsers = () => API.delete('/admin/expired-users');

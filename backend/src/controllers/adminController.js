@@ -256,23 +256,26 @@ const getDashboardStats = async (req, res) => {
     res.status(500).json({ success:false,message:'Server error.' });
   }
 };
+
+/*QUICK ANALYtICS */
+
 const getQuickAnalytics = async (req,res)=>{
   try{
     const [[pending]] = await pool.query(
       "SELECT COUNT(*) total FROM registrations WHERE approval_status='pending'"
     );
-    const getTop = async meal => {
-      const column = meal.toLowerCase();
-      const [rows] = await pool.query(`
-        SELECT ${column} item, COUNT(*) count
-        FROM menu_selections
-        WHERE ${column} IS NOT NULL
-        GROUP BY ${column}
-        ORDER BY count DESC
-        LIMIT 1
-      `);
-      return rows[0] || null;
-    };
+   const getTop = async (meal) => {
+  const [rows] = await pool.query(`
+    SELECT item_name AS item, COUNT(*) AS count
+    FROM menu_selection_items
+    WHERE meal_type = ?
+    GROUP BY item_name
+    ORDER BY count DESC
+    LIMIT 1
+  `,[meal]);
+
+  return rows[0] || null;
+};
     res.json({
       success:true,
       data:{
@@ -446,7 +449,7 @@ const getAnalytics = async (req,res)=>{
 
 
     const [[selected]] = await pool.query(
-      "SELECT COUNT(DISTINCT user_id) total FROM menu_selections WHERE week_start = CURDATE()"
+      "SELECT COUNT(DISTINCT user_id) total FROM menu_selection_items"
     );
 
 
