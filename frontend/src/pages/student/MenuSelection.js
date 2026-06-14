@@ -8,14 +8,34 @@ import toast from 'react-hot-toast';
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const CAT  = { Veg:{ bg:'#dcfce7', color:'#15803d' }, 'Non-Veg':{ bg:'#fee2e2', color:'#dc2626' }, Special:{ bg:'#fef9c3', color:'#a16207' } };
 
+// Parses a YYYY-MM-DD string as a LOCAL date (avoids UTC midnight shift)
+const parseLocalDate = (ws) => {
+  const [y, m, d] = ws.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
 const fmt = ws => {
   if (!ws) return '';
-  const s = new Date(ws), e = new Date(ws); e.setDate(e.getDate()+6);
+  const s = parseLocalDate(ws);
+  const e = parseLocalDate(ws);
+  e.setDate(e.getDate() + 6);
   const f = d => d.toLocaleDateString('en-IN',{day:'numeric',month:'short'});
   return `${f(s)} – ${f(e)}, ${e.getFullYear()}`;
 };
 
-const getMonday = () => { const n=new Date(),d=n.getDay(),m=new Date(n); m.setDate(n.getDate()+(d===0?-6:1-d)); return m.toISOString().split('T')[0]; };
+// Returns this week's Monday as YYYY-MM-DD using LOCAL date parts
+// (avoids UTC shift from toISOString() which can roll the date back/forward
+// depending on server timezone vs IST)
+const getMonday = () => {
+  const n = new Date();
+  const d = n.getDay();
+  const m = new Date(n);
+  m.setDate(n.getDate() + (d === 0 ? -6 : 1 - d));
+  const yyyy = m.getFullYear();
+  const mm   = String(m.getMonth() + 1).padStart(2, '0');
+  const dd   = String(m.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
 
 export default function MenuSelection() {
   const { user }   = useAuth();
@@ -45,23 +65,20 @@ export default function MenuSelection() {
         setHasWeek(selRes.data.has_current_week);
         setIsDefault(selRes.data.is_last_week_default);
 
-        // Build selection map from saved data
-        // Build selection map from menu_selection_items response
-const map = {};
+        // Build selection map from grouped menu_selection_items response
+        // selRes.data.data shape: { Monday: { Breakfast:[{menu_id,item_name}], Lunch:[...], Dinner:[...] }, ... }
+        const map = {};
+        DAYS.forEach(d => { map[d] = { Breakfast: [], Lunch: [], Dinner: [] }; });
 
-DAYS.forEach(d => {map[d] = { Breakfast: [],Lunch: [],Dinner: []};});
+        const saved = selRes.data.data || {};
+        DAYS.forEach(day => {
+          MEALS.forEach(meal => {
+            const items = saved[day]?.[meal] || [];
+            map[day][meal] = items.map(i => i.menu_id);
+          });
+        });
 
-(selRes.data.data || []).forEach(row => {
-  if (!map[row.day_name]) return;
-
-  if (!map[row.day_name][row.meal_type]) {
-    map[row.day_name][row.meal_type] = [];
-  }
-
-  map[row.day_name][row.meal_type].push(row.menu_id);
-});
-
-setSelections(map);
+        setSelections(map);
       } catch { toast.error('Failed to load menu.'); }
       finally { setFetching(false); }
     })();

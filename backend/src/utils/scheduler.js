@@ -2,10 +2,17 @@ const cron = require('node-cron');
 const { pool } = require('../config/db');
 const { sendExpiryWarning, sendDailyMenuReminder } = require('./emailService');
 
+// Returns this week's Monday as YYYY-MM-DD using LOCAL date parts
+// (avoids UTC shift from toISOString() — scheduler runs in IST per cron config)
 const getMonday = () => {
-  const n=new Date(),d=n.getDay(),m=new Date(n);
-  m.setDate(n.getDate()+(d===0?-6:1-d));
-  return m.toISOString().split('T')[0];
+  const n = new Date();
+  const d = n.getDay();
+  const m = new Date(n);
+  m.setDate(n.getDate() + (d === 0 ? -6 : 1 - d));
+  const yyyy = m.getFullYear();
+  const mm   = String(m.getMonth() + 1).padStart(2, '0');
+  const dd   = String(m.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 };
 
 const runExpiryCleanup = async () => {
@@ -39,9 +46,13 @@ const runMenuReminders = async () => {
 // so admin only ever sees the current week by default once a new week starts.
 const runWeeklyReset = async () => {
   const currentWeek = getMonday();
-  const lastWeek = new Date(currentWeek);
+  const [y, m, d] = currentWeek.split('-').map(Number);
+  const lastWeek = new Date(y, m - 1, d);
   lastWeek.setDate(lastWeek.getDate() - 7);
-  const lastWeekStr = lastWeek.toISOString().split('T')[0];
+  const ly = lastWeek.getFullYear();
+  const lm = String(lastWeek.getMonth() + 1).padStart(2, '0');
+  const ld = String(lastWeek.getDate()).padStart(2, '0');
+  const lastWeekStr = `${ly}-${lm}-${ld}`;
 
   const [planResult] = await pool.query(
     'DELETE FROM weekly_menu_plan WHERE week_start = ?',

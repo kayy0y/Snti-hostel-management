@@ -3,11 +3,18 @@ const { validationResult } = require('express-validator');
 
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 
+// Returns this week's Monday as YYYY-MM-DD using LOCAL server date parts.
+// Avoids toISOString() UTC shift which can return the wrong date
+// depending on server timezone vs IST.
 const getMonday = () => {
-  const now = new Date(), day = now.getDay();
+  const now = new Date();
+  const day = now.getDay();
   const mon = new Date(now);
   mon.setDate(now.getDate() + (day === 0 ? -6 : 1 - day));
-  return mon.toISOString().split('T')[0];
+  const yyyy = mon.getFullYear();
+  const mm   = String(mon.getMonth() + 1).padStart(2, '0');
+  const dd   = String(mon.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 };
 
 // GET /api/menus
@@ -266,9 +273,13 @@ const getMyMenuSelection = async (req, res) => {
     }
 
     // Fall back to last week
-    const lastMon = new Date(week_start);
+    const [wy, wm, wd] = week_start.split('-').map(Number);
+    const lastMon = new Date(wy, wm - 1, wd);
     lastMon.setDate(lastMon.getDate() - 7);
-    const lastWeekStr = lastMon.toISOString().split('T')[0];
+    const ly = lastMon.getFullYear();
+    const lm = String(lastMon.getMonth() + 1).padStart(2, '0');
+    const ld = String(lastMon.getDate()).padStart(2, '0');
+    const lastWeekStr = `${ly}-${lm}-${ld}`;
     const last = await fetchGrouped(lastWeekStr);
 
     return res.json({

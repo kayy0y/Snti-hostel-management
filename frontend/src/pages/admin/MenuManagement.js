@@ -7,8 +7,21 @@ const DAYS  = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Su
 const MEALS = ['Breakfast','Lunch','Dinner'];
 const CAT   = { Veg:{ bg:'#dcfce7', c:'#15803d' }, 'Non-Veg':{ bg:'#fee2e2', c:'#dc2626' }, Special:{ bg:'#fef9c3', c:'#a16207' } };
 
-const getMonday = () => { const n=new Date(),d=n.getDay(),m=new Date(n); m.setDate(n.getDate()+(d===0?-6:1-d)); return m.toISOString().split('T')[0]; };
-const fmtWeek   = ws => { if(!ws) return ''; const s=new Date(ws),e=new Date(ws); e.setDate(e.getDate()+6); return `${s.toLocaleDateString('en-IN',{day:'numeric',month:'short'})} – ${e.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}`; };
+// Returns this week's Monday as YYYY-MM-DD using LOCAL date parts
+// (avoids UTC shift from toISOString())
+const getMonday = () => {
+  const n = new Date();
+  const d = n.getDay();
+  const m = new Date(n);
+  m.setDate(n.getDate() + (d === 0 ? -6 : 1 - d));
+  const yyyy = m.getFullYear();
+  const mm   = String(m.getMonth() + 1).padStart(2, '0');
+  const dd   = String(m.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+// Parses a YYYY-MM-DD string as a LOCAL date (avoids UTC midnight shift)
+const parseLocalDate = ws => { const [y,m,d] = ws.split('-').map(Number); return new Date(y, m-1, d); };
+const fmtWeek = ws => { if(!ws) return ''; const s=parseLocalDate(ws),e=parseLocalDate(ws); e.setDate(e.getDate()+6); return `${s.toLocaleDateString('en-IN',{day:'numeric',month:'short'})} – ${e.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}`; };
 
 export default function MenuManagement() {
   const [master,   setMaster]   = useState({ Breakfast:[], Lunch:[], Dinner:[] });
